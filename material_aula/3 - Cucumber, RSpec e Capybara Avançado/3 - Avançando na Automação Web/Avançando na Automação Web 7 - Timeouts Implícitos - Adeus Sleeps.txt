@@ -1,0 +1,41 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Timeouts Implícitos - Adeus Sleeps
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+_____________________________________________________________________________________________________
+require "capybara"
+require "capybara/cucumber"
+require "selenium-webdriver"
+require "pry"
+
+require_relative "helpers"
+
+World(Helpers)
+
+Capybara.configure do |config|
+  config.default_driver = :selenium
+  config.app_host = "http://localhost:8080"
+  config.default_max_wait_time = 15
+end
+_____________________________________________________________________________________________________
+Apenas adicionado o config.default_max_wait_time = 15
+
+
+
+
+
+
+
+
+
+
+
+
+

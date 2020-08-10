@@ -1,0 +1,155 @@
+Cucumber, RSpec e Capybara Avançado > Configurações e Boas Práticas > Multi Browser com Chrome, Firefox e Headless
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Nessa aula vamos trabalhar com a opção de multi navegadores
+
+
+E vamos começar mexendo no arquivo cucumber.yaml, criando então os parametros dos navegadores firefox e chrome e também o parametro do headless:
+
+cucumber.yaml
+_____________________________________________________________________________________________________
+---
+default: -p dev
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+firefox: BROWSER=firefox
+chrome: BROWSER=chrome
+headless: BROWSER=headless
+_____________________________________________________________________________________________________
+
+
+Agora no arquivo env.rb vamos recuperar a informação:
+
+Começamos por obter a variável de ambiente:
+ENV["BROWSER"]
+
+Então a partir desse ponto, conseguimos recuperar o valor dessa variável de ambiente do tipo BROWSER, pois o cucumber.yaml vai criar essa variável de ambiente no computador
+
+Agora que temos essa variável, vamos fazer um "case" dela para selecionar o browser que precisamos:
+
+case ENV["BROWSER"]
+when "firefox"
+  @driver = :selenium
+when "chrome"
+  @driver = :selenium_chrome
+when "headless"
+  @driver = :selenium_chrome_headless
+else
+  puts "Invalid Browser"
+end
+
+
+Com esse case definindo o valor da variável @driver, vamos usar esse valor e passar para a configuração do Capybara:
+
+config.default_driver = @driver
+
+Ficando assim:
+
+env.rb:
+_____________________________________________________________________________________________________
+require "capybara"
+require "capybara/cucumber"
+require "selenium-webdriver"
+require "pry"
+require "os"
+
+require_relative "helpers"
+
+World(Helpers)
+
+CONFIG = YAML.load_file(File.join(Dir.pwd, "features/support/config/#{ENV["ENV_TYPE"]}.yaml"))
+
+case ENV["BROWSER"]
+when "firefox"
+  @driver = :selenium
+when "chrome"
+  @driver = :selenium_chrome
+when "headless"
+  @driver = :selenium_chrome_headless
+else
+  puts "Invalid Browser"
+end
+
+Capybara.configure do |config|
+  config.default_driver = @driver
+  config.app_host = CONFIG["url"]
+  config.default_max_wait_time = 10
+end
+_____________________________________________________________________________________________________
+Agora a execução do teste multi navegadores ficou certinha
+
+
+Vamos voltar ao arquivo cucumber.yaml e vamos alterar nosso default:
+_____________________________________________________________________________________________________
+---
+default: -p dev -p firefox
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+firefox: BROWSER=firefox
+chrome: BROWSER=chrome
+headless: BROWSER=headless
+_____________________________________________________________________________________________________
+Então acabamos de settar nosso default como sendo, ambiente de dev + navegador firefox.
+
+Então se executarmos apenas o comando cucumber -t @login_feliz, ele vai executar no ambiente de dev com o navegador chrome:
+
+λ cucumber -t @login_feliz
+
+Using the default, dev and firefox profiles...
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m6.654s
+
+
+
+
+Mas nada impede que passemos os parametros no momento da execução:
+
+λ cucumber -t @login_feliz -p dev -p chrome
+Using the dev and chrome profiles...
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+
+DevTools listening on ws://127.0.0.1:63614/devtools/browser/28c304dd-9cd8-4c30-b70b-edbcc58e3b79
+[18924:20092:0727/122839.285:ERROR:device_event_log_impl.cc(208)] [12:28:39.284] Bluetooth: bluetooth_adapter_winrt.cc:1074 Getting Default Adapter failed.
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m8.846s
+
+
+E desse modo ele executou em ambiente dev e com o navegador chrome.
+
+

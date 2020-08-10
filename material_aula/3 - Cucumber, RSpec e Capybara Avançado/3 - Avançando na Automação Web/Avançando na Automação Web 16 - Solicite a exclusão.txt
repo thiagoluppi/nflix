@@ -1,0 +1,346 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Solicite a exclusão
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Nessa aula vamos continuar com o arquivo.feature da aula passada:
+
+_____________________________________________________________________________________________________
+#language:pt
+
+@login
+Funcionalidade: Remover filme
+    Para que eu possa manter o catalogo atualizado
+    Sendo um gestor de catalogo que encontrou um titulo cancelado/indesejado 
+    Posso remover este item
+
+    @rm_movie
+    Cenario: Confirmar exclusao
+        Dado que "dbz" esta no catalogo
+        Quando eu solicito a exclusao
+        E eu confirmo a solicitacao
+        Então este item deve ser removido do catalogo
+    
+
+    Cenario: Cancelar exclusao
+        Dado que "10 coisas que odeio em voce" esta no catalogo
+        Quando eu solicito a exclusao
+        Mas cancelo a solicitacao
+        Então este item deve permanecer no catalogo
+_____________________________________________________________________________________________________
+
+E também iremos completar o arquivo de steps:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme)
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    E este filme já existe no catalogo
+  }
+end
+
+Quando("eu solicito a exclusao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Quando("eu confirmo a solicitacao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("este item deve ser removido do catalogo") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+
+Nessa aula vamos falar especificamente do passo:
+Quando("eu solicito a exclusao") do
+
+Que é exatamente a parte onde clicamos no "x" da linha do filme e confirmamos sua exclusão
+
+Quando estamos no site e precismos excluir um registro de filme, apenas clicamos no "X" dessa linha e confirmamos sua exclusão,
+ao observar o html da página, vemos que o ícone do botão de exclusão está dentro de uma td, que por sua vez está dentro de uma tr, que por sua vez estão dentro de uma tbody, mais  precisamente:
+table > tbody > tr > td
+
+Ao observar isso podemos ver que já temos um método que para pegar isso em nossa page object:
+ # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(filme)
+    find("table tbody tr", text: filme["titulo"])
+  end
+  
+
+Porém, esse método está recebendo um objeto filme, sendo que ele não precisa receber tudo isso, pois só está usando o título do filme. Então vamos fazer uma pequena refatoração
+em nosso código para adequar isso:
+
+Vamos começar pelo arquivo filme_steps.rb
+
+Vamos alterar:
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme["titulo"])
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Quando("eu solicito a exclusao") do
+  @filme_page.filme_tr(@filme["titulo"])
+end
+
+Ficando assim:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme["titulo"])
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    E este filme já existe no catalogo
+  }
+end
+
+Quando("eu solicito a exclusao") do
+  @filme_page.filme_tr(@filme["titulo"])
+end
+
+Quando("eu confirmo a solicitacao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("este item deve ser removido do catalogo") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+
+Também vamos alterar o arquivo filme_page.rb:
+
+Vamos alterar:
+
+ # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+Ficando assim:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que seleciona o status do filme
+  def select_status(status)
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: status).click
+  end
+
+  # Método que preenche os campos de cadastro de filme
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    # Chama o método que seleciona o status do filme, se status não estiver vazio
+    select_status(filme["status"]) unless filme["status"].empty?
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    # Usa o array de strings de atores e manda a tecla tab
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    # Chama o método que faz upload da capa do filme, se capa não estiver vazia
+    upload(filme["capa"]) unless filme["capa"].empty?
+
+    click_button "create-movie"
+  end
+
+  # Método que faz upload da capa do filme
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+
+    # Muda as barras / para barras invertidas do Windows, se o S.O for Windows
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    # Faz o Capybara não ignorar elementos ocultos
+    Capybara.ignore_hidden_elements = false
+
+    attach_file("upcover", cover_file)
+
+    # Faz ele ignorar elementos ocultos novamente
+    Capybara.ignore_hidden_elements = true
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+  # Alerta quando o cadastro do campo obrigatório falha
+  def alerta
+    find(".alert span").text
+  end
+end
+_____________________________________________________________________________________________________
+
+Como o método filme_tr devolve um elemento, vamos guardar esse resultado dentro de uma variável, chamada movie:
+
+Quando("eu solicito a exclusao") do
+  movie = @filme_page.filme_tr(@filme["titulo"])
+end
+
+E vamos utilizar essa variável para buscar dentro desse elemento (tr), o lemento que representa o botão excluir,
+que é um elemento do tipo button que tem uma classe muito interessante chamada "btn-trash":
+
+movie.find(".btn-trash").click
+
+Quando("eu solicito a exclusao") do
+  movie = @filme_page.filme_tr(@filme["titulo"])
+  movie.find(".btn-trash").click
+end
+
+Porém temos que encapsular isso dentro do page object:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que seleciona o status do filme
+  def select_status(status)
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: status).click
+  end
+
+  # Método que preenche os campos de cadastro de filme
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    # Chama o método que seleciona o status do filme, se status não estiver vazio
+    select_status(filme["status"]) unless filme["status"].empty?
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    # Usa o array de strings de atores e manda a tecla tab
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    # Chama o método que faz upload da capa do filme, se capa não estiver vazia
+    upload(filme["capa"]) unless filme["capa"].empty?
+
+    click_button "create-movie"
+  end
+
+  # Método que faz upload da capa do filme
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+
+    # Muda as barras / para barras invertidas do Windows, se o S.O for Windows
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    # Faz o Capybara não ignorar elementos ocultos
+    Capybara.ignore_hidden_elements = false
+
+    attach_file("upcover", cover_file)
+
+    # Faz ele ignorar elementos ocultos novamente
+    Capybara.ignore_hidden_elements = true
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+  def remove(titulo)
+    filme_tr(titulo).find(".btn-trash").click
+  end
+
+  # Alerta quando o cadastro do campo obrigatório falha
+  def alerta
+    find(".alert span").text
+  end
+end
+_____________________________________________________________________________________________________
+Como estamos dentro da própria page object, não precisamos usar a variável de instancia, apenas invocamos o método de propria classe (page object) e
+como o código ficou menor, não precisamos usar a variável movie para fazer a busca do elemento, já fazemos direto.
+
+
+
+
+
+
+
+
+
+
+

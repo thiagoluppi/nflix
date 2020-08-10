@@ -1,0 +1,140 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Back to the Past - Massa de teste sempre válida
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Nessa aula vamos aprender como preparar a automação para que ela não quebre quando for cadastrar um novo filme que já existe.
+Assim que rodamos uma automação de cadastrar os filmes, os filmes ficam gravados no site e não conseguimos rodar essa automação em seguida, pois o site não aceita cadastro
+de filmes com mesmo título e isso quebra a automação. Nesses casos ou mudamos a massa de testes ou apagamos manualmente no próprio site os filmes ou
+acessamos o banco de dado e mais uma vez, manualmente, apagamos os dados, porém podemos fazer isso de forma automática e para isso vamos mexer
+em nossa estrutura do projeto mais uma vez:
+
+Dentro de support, vamos criar uma pasta chamada libs e dentro dessa pasta vamos criar um arquivo chamado database.rb
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+			> libs
+				- database.rb
+				> cover
+					- coringa.jpg
+					- dp2.jpg
+					- spider.jpg
+					- ultimato.jpg
+				- filmes.yaml
+			> pages
+				> views
+					- sidebar.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- cadastro_filmes.feature	
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+Criado o arquivo database.rb, vamos criar uma classe dentro dele:
+_____________________________________________________________________________________________________
+class Database
+  def delete_movie(title)
+    DELETE from public.movies where title = 'Vingadores Ultimato'
+  end
+end
+_____________________________________________________________________________________________________
+A query acima pode ser executada no nosso banco de dados Postgres e isso fará com que o filme Vingadores Ultimato seja deletado. 
+Porém temos um grande problema, pois o ruby não sabe acessar o banco de dados e executar a query, mas temos uma gem que faz isso
+
+A gem "pg" serve para trabalhar com o banco de dados Postgres e nós vamos fazer uso dela e para isso vamos mudar nosso Gemfile:
+_____________________________________________________________________________________________________
+source "http://rubygems.org"
+
+gem "capybara", "3.18.0"
+gem "cucumber", "3.1.2"
+gem "rspec", "3.8.0"
+gem "selenium-webdriver", "3.142.0"
+gem "pry"
+gem "os", "1.0.1"
+gem "pg", "1.1.4"
+_____________________________________________________________________________________________________
+E agora vamos instalar de fato com o comando:
+
+λ bundle install
+
+Após ele ter instalado as novas dependencias, vamos voltar ao nosso arquivo database.rb e fazer algumas modificações
+
+Primeiramente vamos importar essa gem para ele usando o comando require "pg" e vamos criar uma variável chamada "connection" para fazer a conexão com o banco:
+
+connection = PG.connect(host: "http://localhost/", dbname: "nflix", user: "postgres", password: "qaninja")
+
+host = endereço local do pgadmin (como uso o docker desktop então eu rodo em localhost)
+dbname = o nome do banco de dados que foi definido no começo
+user = nome de usuário para logar no banco
+password = senha do banco
+
+Pronto, agora criamos nossa conexão com o banco de dados Postgres e já podemos usá-la
+_____________________________________________________________________________________________________
+require "pg"
+
+class Database
+  def delete_movie(title)
+    connection = PG.connect(host: "http://localhost/", dbname: "nflix", user: "postgres", password: "qaninja")
+    connection.exec("DELETE from public.movies where title = '#{title}';")
+  end
+end
+_____________________________________________________________________________________________________
+Mudamos a query, pois o title estava hard coded e agora ela recebe um parametro title.
+usamos também a interpolação #{title} para passar o argumento e esse argumento precisa estar entre aspas simples
+Finalizamos com ; pois se trata de uma query SQL
+
+Está pronto!
+
+Agora vamos acessar filme_steps.rb e usar sempre que formos adicionar um filme:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme)
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+_____________________________________________________________________________________________________
+Agora no passo Dado estamos fazendo:
+instanciamos a classe Database:
+Database.new
+
+chamamos o método delete_movie e passamos a variável de instancia do yaml passando o titulo do filme:
+delete_movie(@filme["titulo"])
+
+Só por curiosidade a gente poderia também ter instanciado a classe Database em hooks.rb e depois só chamado ela no passo Dado, mas
+como só quem vai usar essa classe é esse passo, sempre que não fossemos usar ela seria instanciada à toa.
+
+Pronto, dessa forma, sempre que formos adicionar um filme, a query para deletar esse mesmo filme irá rodar primeiro, fazendo assim que seja sempre possível adicionar um novo filme
+eliminando a necessidade de ficar excluindo filmes antigos manualmente.
+
+

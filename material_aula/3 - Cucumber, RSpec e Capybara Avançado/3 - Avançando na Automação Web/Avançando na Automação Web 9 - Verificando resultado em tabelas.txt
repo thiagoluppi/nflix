@@ -1,0 +1,275 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Verificando resultado em tabelas
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Primeiro vamos apenas clicar no botão de cadastro de filme, para efetivamente cadastrar o filme que preenchemos os campos:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    Capybara.ignore_hidden_elements = false
+    attach_file("upcover", cover_file)
+    Capybara.ignore_hidden_elements = true
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    upload(filme["capa"])
+
+    click_button "create-movie"
+  end
+end
+_____________________________________________________________________________________________________
+
+No arquivo de steps também vamos tirar o puts @filme e o sleep de 2s que haviamos colocado, assim como
+vamos também já completar o ultimo passo com um código simples de verificação:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  expect(page).to have_text @filme["titulo"]
+end
+_____________________________________________________________________________________________________
+
+Agora vamos executar para ver o resultado:
+
+λ cucumber -t @novo_filme
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:10
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:12
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:13
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:14
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+3 scenarios (3 passed)
+9 steps (9 passed)
+0m16.567s
+
+Os 3 filmes foram cadastrados com sucesso e depois validamos se os títulos de cada um deles aparece na lista
+
+E se quisermos validar mais informações. Podemos agora validar o status desses filmes:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  expect(page).to have_text @filme["titulo"]
+  expect(page).to have_text @filme["status"]
+end
+_____________________________________________________________________________________________________
+
+Vamos executar novamente
+
+λ cucumber -t @novo_filme
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:10
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:12
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:13
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:14
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+3 scenarios (3 passed)
+9 steps (9 passed)
+0m18.598s
+
+Ele executou com sucesso mais uma vez
+
+Porém essa verificação não garante uma validação precisa, pois se na página dos filmes cadastrados houvesse mais de um filme com o mesmo status "disponível"
+ele não estaria validando o filme que acabamos de cadastrar. Precisamos garantir que estamos validando o "disponível" exatamente da linha do nosso filme.
+
+Como estamos validando uma tabela, sabemos que cada tabela em html possui um thead que é o cabeçalho da tabela, o tbody que é o corpo onde estão todos os registros e cada registro dessa tabela é representado
+por um elemento tr e as colunas são representadas por elementos do tipo td:
+thead: cabeçalho
+tbody: corpo
+tr: linhas dos registros
+td: colunas dos registros
+
+Então vamos montar um seletor css para validar esses campos mais precisamente
+
+Como não podemos fazer find dentro da camada de steps é claro que devemos buscar isso na camada do page object:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    upload(filme["capa"])
+
+    click_button "create-movie"
+  end
+
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    Capybara.ignore_hidden_elements = false
+    attach_file("upcover", cover_file)
+    Capybara.ignore_hidden_elements = true
+  end
+
+  def filme_tr(filme)
+    find("table tbody tr", text: filme["titulo"])
+  end
+end
+_____________________________________________________________________________________________________
+Reparem que inverti a ordem dos métodos, achei que ficou melhor assim, deixando o método create lá em cima
+o find está buscando pelos elementos table, tbody e tr, onde o texto representa o titulo do filme que estamos passando a ele
+
+Agora vamos ver como fica a camada de steps:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme)
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+_____________________________________________________________________________________________________
+criamos a variável resultado apenas para a linha não ficar muito grande no expect, mas poderia ter ficado tudo na mesma linha:
+expect(@filme_page.filme_tr(@filme)).to have_text @filme["titulo"]
+expect(@filme_page.filme_tr(@filme)).to have_text @filme["status"]
+
+desse modo estamos validando exatamente a linha que queremos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

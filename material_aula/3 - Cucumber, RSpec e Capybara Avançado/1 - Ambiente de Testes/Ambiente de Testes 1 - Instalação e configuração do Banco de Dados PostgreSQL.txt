@@ -1,0 +1,63 @@
+Cucumber, RSpec e Capybara Avançado > Ambiente de Testes > Instalação e configuração do Banco de Dados PostgreSQL
+_____________________________________________________________________________________________________
+
+
+Para começar criando uma rede local:
+λ docker network create --driver bridge skynet
+
+("skynet" é o nome dado à rede)
+
+
+-Para baixar imagens (imagens de banco de dados, de APIs, etc...): docker pull + o nome que quer baixar
+λ docker pull postgres
+
+
+Para criar containers:
+λ docker run --name pgdb --network=skynet -e "POSTGRES_PASSWORD=qaninja" -p 5432:5432 -v var/lib/postgresql/data -d postgres
+
+Onde: pgdb é o nome do container; skynet é nome da rede onde o container vai ficar; POSTGRES_PASSWORD=qaninja é variável de ambiente para preencher a senha; 
+5432:5432 é a porta padrão pelo qual ele vai conectar; var/lib/postgresql/data é o nome do repositório do arquivo de dados; -d é para ele executar "desatachado". 
+Se esse comando não for dado, todo log de execução do servidor(container) vai aparecer no cmder e isso atrapalha; e por fim postgres é para ele saber qual a imagem ele vai usar para subir esse container.
+
+Para criar um container cuja imagem ainda não baixou:
+λ docker run --name pgadmin --network=skynet -e "PGADMIN_DEFAULT_EMAIL=root@qaninja.io" -e "PGADMIN_DEFAULT_PASSWORD=qaninja" -p 15432:80 -d dpage/pgadmin4
+
+com o comando acima, apesar de não termos baixado a imagem como fizemos com a primeira, ele vai baixar a imagem primeiro e depois criar o container para nós. 
+Não precisou fazer o pull da imagem do adminstrador do banco de dados porque o comando run já faz um pull antes de executar, e se não tiver a imagem ele vai buscar (pull)
+
+Onde: explicando a porta: foi colocado 1 na frente da porta apenas para diferenciar e porque ele vai subir na porta :80 e não se quer expor ele pra web, por isso fica com a porta 15432:80, 
+pois ele será exposto apenas na porta 15432.
+
+Para acessar o container onde está a ferramenta que faz o gerenciamento do banco de dados pelo browser é só digitar na url:
+http://localhost:15432/
+
+Agora vamos configurar a aplicação do banco de dados e para isso vamos abrir o browser e digitar http://localhost:15432/
+
+Para logar na ferramenta, vamos usar os paramentros que definimos lá no docker:
+User: root@qaninja
+Senha: qaninja
+
+Essa é apenas uma ferramenta para gerenciamento de banco de dados, ela ainda não está conectada ao banco.
+
+Em Servers vamos clicar com o botão direito:
+Servers/Create/Server...
+
+Na aba General:
+Name = pgdb
+
+Na aba Connection:
+Host name/address: pgdb
+Username: postgres
+Senha: qaninja
+
+Tique save password e clique no botão salvar.
+
+Pronto, agora conectamos no banco de dados
+
+no Menu à esquerda onde acabamos de fazer as configurações acima, vamos expandir Database, e clicar com o botão direito em Database/Create/Database
+Database = nflix
+Clique no botão save.
+
+A primeira etapa já está concluida.
+
+

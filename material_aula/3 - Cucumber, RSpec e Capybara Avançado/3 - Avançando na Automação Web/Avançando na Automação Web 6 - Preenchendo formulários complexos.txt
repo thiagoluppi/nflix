@@ -1,0 +1,456 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Preenchendo formulários complexos
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Nessa aula vamos dar continuidade ao BDD da aula passada:
+
+#language:pt
+
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver o novo filme na lista
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  Cenario: Sem nome
+    Quando eu tento cadastrar um filme sem nome
+    Então devo ver a notificação "Oops - Filme sem titulo. Pode isso Arnaldo?"
+
+  Cenario: Sem status
+    Quando eu tento cadastrar um filme sem status
+    Então devo ver a notificação "Oops - O status deve ser informado!"
+
+  Cenario: Ano de lançamento não informado
+    Quando eu tento cadastrar um filme sem ano de lançamento
+    Então devo ver a notificação "Oops - Faltou o ano de lançamento também!"
+
+  Cenario: Data de estréia não informada
+    Quando tento cadastrar um filme sem a data de estréia
+    Então devo ver a notificação "Oops - Quase lá, só falta a data de estréia!"
+
+  Cenario: Duplicado
+    Dado que "Deadpool 2" já foi cadastrado
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix."
+	
+
+Vamos agora codificar o "Quando eu faço o cadastro deste filme" e para isso vamos criar mais uma page object dentro da pasta pages chamada filme_page.rb:
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+				- filmes.yaml
+			> pages
+				> views
+					- sidebar.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+E dado que uma nova page object foi criada, devemos lembrar de sempre acessar o arquivo hooks.rb e instanciá-la:
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @sidebar = SideBarView.new
+  @filme_page = FilmePage.new
+end
+_____________________________________________________________________________________________________
+Como podemos ver também mudamos o nome da variável de instancia, pois é uma boa prática deixar desse jeito. Dado que estamos falando de
+page object, é mais legível colocar "page" em seu nome. As views aparentemente não seguem esse mesmo padrão, o Papito disse que ia explicar mais pra frente o motivo disso.
+
+Agora vamos codificar essa nova page, nunca esquecendo que precisamos importar a DSL do Capybara para dentro dela.
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(titulo)
+    find("input[name=title]").set titulo
+  end
+end
+_____________________________________________________________________________________________________
+O método add não faz nada além de clicar no botão "+" para que adicionemos um filme
+o método create pega o título do filme o o setta no campo name
+
+Agora vamos ver o filme_steps.rb como vai ficar:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme["titulo"])
+end
+
+Então("devo ver o novo filme na lista") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+O arquivo.yaml é gravado na variável file que por sua vez grava na variável @filme qual o registro de yaml que está sendo executado no momento de acordo com o BDD:
+
+Exemplos:
+      | codigo     |
+      | "ultimato" | Primera vez
+      | "spider"   | Segunda vez
+      | "joker"    | Terceira vez
+
+Quando vamos adicionar o titulo do filme usando o método create, usamos a variável de instancia @filme, passando o atributo titulo, lá do arquivo.yaml:
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+
+ou seja, estamos enviando ao método create o nome "Vingadores Ultimato"
+
+
+Vamos executar para ver se já está preenchendo o campo do nome do filme no cadastro de filmes:
+
+λ cucumber -t @novo_filme
+# language: pt
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:9
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:11
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:12
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:13
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      Unable to find css ".nc-simple-add" (Capybara::ElementNotFound)
+      ./features/support/pages/filme_page.rb:6:in `add'
+      ./features/step_definitions/filme_steps.rb:8:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:17:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:12:in `Quando eu faço o cadastro deste filme'
+      | "spider"   |
+      Unable to find css ".nc-simple-add" (Capybara::ElementNotFound)
+      ./features/support/pages/filme_page.rb:6:in `add'
+      ./features/step_definitions/filme_steps.rb:8:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:18:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:12:in `Quando eu faço o cadastro deste filme'
+      | "joker"    |
+      Unable to find css ".nc-simple-add" (Capybara::ElementNotFound)
+      ./features/support/pages/filme_page.rb:6:in `add'
+      ./features/step_definitions/filme_steps.rb:8:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:19:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:12:in `Quando eu faço o cadastro deste filme'
+
+Failing Scenarios:
+cucumber features/cadastro_filmes.feature:17 # Esquema do Cenario: Novo filme, Exemplos (#1)
+cucumber features/cadastro_filmes.feature:18 # Esquema do Cenario: Novo filme, Exemplos (#2)
+cucumber features/cadastro_filmes.feature:19 # Esquema do Cenario: Novo filme, Exemplos (#3)
+
+3 scenarios (3 failed)
+9 steps (3 failed, 3 skipped, 3 passed)
+0m9.022s
+
+O cenário falhou porque precisamos logar no sistema e não estamos fazendo isso!
+
+Para resolver não vamos adicionar nenhum passo no nosso BDD, vamos fazer de outra maneira, vamos criar um gancho:
+
+No arquivo.feature vamos criar uma tag em Funcionalidade chamada @login:
+
+#language:pt
+
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver o novo filme na lista
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  Cenario: Sem nome
+    Quando eu tento cadastrar um filme sem nome
+    Então devo ver a notificação "Oops - Filme sem titulo. Pode isso Arnaldo?"
+
+  Cenario: Sem status
+    Quando eu tento cadastrar um filme sem status
+    Então devo ver a notificação "Oops - O status deve ser informado!"
+
+  Cenario: Ano de lançamento não informado
+    Quando eu tento cadastrar um filme sem ano de lançamento
+    Então devo ver a notificação "Oops - Faltou o ano de lançamento também!"
+
+  Cenario: Data de estréia não informada
+    Quando tento cadastrar um filme sem a data de estréia
+    Então devo ver a notificação "Oops - Quase lá, só falta a data de estréia!"
+
+  Cenario: Duplicado
+    Dado que "Deadpool 2" já foi cadastrado
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix."
+
+E como falamos em gancho, é claro que vamos usar o arquivo hooks.rb para fazer isso:
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @sidebar = SideBarView.new
+  @filme_page = FilmePage.new
+end
+
+Before("@login") do
+  @login_page.go	
+  @login_page.logar("tony@stark.com", "pwd123")
+end
+_____________________________________________________________________________________________________
+Criamos mais um Before que vai sempre logar pra gente, antes da tag @login ou seja
+sempre que quisermos logar agora, basta taggiar com @login e tudo está certo.
+
+Executando agora podemos ver que ele vai logar pra gente e depois preencher o campo com o nome do filme.
+
+λ cucumber -t @novo_filme
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:10
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:12
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:13
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:14
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |  {"titulo"=>"Vingadores Ultimato", "status"=>"Disponível", "ano"=>2019, "data_lançamento"=>"24/04/2019", "elenco"=>["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"], "sinópse"=>"Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta", "capa"=>"ultimato.jpg"}
+      | "spider"   |  {"titulo"=>"Homem Aranha Longe de Casa", "status"=>"Pré-venda", "ano"=>2019, "data_lançamento"=>"04/07/2019", "elenco"=>["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"], "sinópse"=>"Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão", "capa"=>"spider.jpg"}
+      | "joker"    |  {"titulo"=>"Coringa", "status"=>"Em Breve", "ano"=>2019, "data_lançamento"=>"01/12/2020", "elenco"=>["Joaquin Phoenix"], "sinópse"=>"O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City", "capa"=>"coringa.jpg"}
+
+3 scenarios (3 pending)
+9 steps (3 pending, 6 passed)
+0m12.095s
+
+Vamos dar continuidade e preencher os próximo campos
+
+Agora precisamos selecionar no combobox qual é o status desse filme: Disponível ou Pré-venda ou Em breve e claro que vamos implementar isso dentro da nossa page object
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(titulo, status)
+    find("input[name=title]").set titulo
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: status)
+  end
+end
+_____________________________________________________________________________________________________
+primeiro temos o evento de click no campo para exibir a lista de opções
+depois pegamos a classe dessa lista de opções e selecionamos pelo texto, que nesse caso virá de nosso arquivo.yaml também.
+
+Agora vamos implementar no steps:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+  puts @filme
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme["titulo"], @filme["status"])
+  sleep 2
+end
+
+Então("devo ver o novo filme na lista") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+Mas vamos ter que ficar passando todos os elementos como argumento? Como são muitos elementos o código vai ficar dificil de ler
+
+Vamos fazer isso de uma maneira melhor:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+  end
+end
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+  puts @filme
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+  sleep 2
+end
+
+Então("devo ver o novo filme na lista") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+Desse modo enviamos apenas a variável de instancia de filmes.yaml e lá na page a gente pega os atributos.
+
+
+Vamos continuar preenchendo os campos:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+
+    find("input[name=release_date]").set filme["data_lançamento"]
+  end
+end
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+  puts @filme
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+  sleep 2
+end
+
+Então("devo ver o novo filme na lista") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+Reparem que mesmo mudando um monte de coisas em nossa page object, a camada de steps continua limpa
+
+
+Agora vamos preencher a lista de atores que compôe os filmes e aqui vamos fazer um pouco diferente:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+  end
+end
+_____________________________________________________________________________________________________
+Como o atributo "elenco" lá do filmes.yaml é um array de strings, vamos precisar fazer uma repetição para que todos os atores sejam enviados
+então usamos a variável temporaria "a" para que ela represente cada ator em nosso array de atores:
+elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+depois usamos nossa variável "atores" e settamos "a"(cada ator)
+por fim, lá no site, precisamos dar um tab para que o nome do ator seja imputado e ir para o próximo, então usamos "atores" novamente e mandamos o evento de tecla send_keys :tab
+
+A capa do filme vai ficar para a próxima aula
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

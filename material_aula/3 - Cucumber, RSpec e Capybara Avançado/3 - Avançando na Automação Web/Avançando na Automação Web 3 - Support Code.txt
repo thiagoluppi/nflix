@@ -1,0 +1,186 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Support Code
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Vamos usar o BDD da aula passada para essa aula de Page Objects:
+
+#language: pt
+
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso
+    Quando eu faço login com "tony@stark.com" e "pwd123"
+    Então devo ser autenticado
+    E devo ver "Tony Stark" na área logada
+
+  @login_infeliz
+  Esquema do Cenario: Login sem sucesso
+    Quando eu faço login com <email> e <senha>
+    Então não devo ser autenticado
+    E devo ver a mensagem de alerta <texto>
+
+    Exemplos:
+      |email              |senha    |texto                          |
+      |"tony@stark.com"   |"abc123" |"Usuário e/ou senha inválidos" |
+      |"404@yahoo.com"    |"abc123" |"Usuário e/ou senha inválidos" |
+      |""                 |"abxpto" |"Opps. Cadê o email?"          |
+      |"teste@gmail.com"  |""       |"Opps. Cadê a senha?"          |
+
+Nessa aula vamos aprender a usar um arquivo helpers.rb que vai guardar todo o código de suporte.
+Por que isso é necessário? Em nosso código, na camada do step, temos dois passos que são muito parecidos, de validação de token, e se precisar dar manutenção, vamos ter que alterar em dois lugares diferentes.
+
+Poderíamos pensar que devemos encapsular isso em uma page object, porém, não faz muito sentido, pois não se trata de um recurso de página. Então o arquivo helpers.rb se faz necessário e assim
+iremos usar um support code do cucumber:
+
+Dentro da pasta support vamos criar o arquivo helpers.rb:
+
+NFLIX
+	> features
+		> step_definitions
+			- login_steps.rb
+		> support
+			> pages
+				> views
+					- sidebar.rb
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+Esse arquivo helpers é um arquivo genérico, que vai guardar a manipulação do token, como outras coisas.
+
+_____________________________________________________________________________________________________
+module Helpers
+  def get_token
+    js_script = 'return window.localStorage.getItem("default_auth_token");'
+    page.execute_script(js_script)
+  end
+end
+_____________________________________________________________________________________________________
+Foi criado um módulo chamado Helpers que vai fazer a obtenção do token. A variável token não existe mais, isso se dá porque
+nos métodos de ruby, a última instrução sempre é retornada a quem chamou esse método.
+Importante dizer que esse arquivo não é uma classe, ele é um módulo e por isso não precisa ser instanciado, mas como vamos fazer para acessar?
+
+Dentro do arquivo env.rb vamos importar esse módulo fazendo um require_relative "helpers" e como eles estão (helpers e env) na mesma pasta, não precisa passar o caminho:
+_____________________________________________________________________________________________________
+require "capybara"
+require "capybara/cucumber"
+require "selenium-webdriver"
+require "pry"
+
+require_relative "helpers"
+
+World(Helpers)
+
+Capybara.configure do |config|
+  config.default_driver = :selenium
+  config.app_host = "http://localhost:8080"
+end
+_____________________________________________________________________________________________________
+Estamos usando o recurso World(Helpers) para dizer que todos os métodos de helpers.rb são nativos e acessíveis a todos
+
+
+
+Como podemos ver agora quem executa o script de js_script na página é esse módulo, logo a camada de steps ficou mais limpa, não precisa mais fazer isso:
+_____________________________________________________________________________________________________
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  @login.go
+  @login.logar(email, senha)
+end
+
+Então("devo ser autenticado") do
+  expect(get_token.length).to be 147
+end
+
+Então("devo ver {string} na área logada") do |nome_esperado|
+  expect(@sidebar.usuario_logado).to eql nome_esperado
+end
+
+Então("não devo ser autenticado") do
+  expect(get_token).to be nil
+end
+
+Então("devo ver a mensagem de alerta {string}") do |mensagem_esperada|
+  expect(@login.alertar).to eql mensagem_esperada
+end
+_____________________________________________________________________________________________________
+Sem instanciar, podemos ter acesso ao método do módulo helpers, get_token sem problemas.
+
+Vamos executar:
+
+λ cucumber
+
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+  @login_infeliz
+  Esquema do Cenario: Login sem sucesso        # features/login.feature:15
+    Quando eu faço login com <email> e <senha> # features/login.feature:16
+    Então não devo ser autenticado             # features/login.feature:17
+    E devo ver a mensagem de alerta <texto>    # features/login.feature:18
+
+    Exemplos:
+      | email             | senha    | texto                          |
+      | "tony@stark.com"  | "abc123" | "Usuário e/ou senha inválidos" |
+      | "404@yahoo.com"   | "abc123" | "Usuário e/ou senha inválidos" |
+      | ""                | "abxpto" | "Opps. Cadê o email?"          |
+      | "teste@gmail.com" | ""       | "Opps. Cadê a senha?"          |
+
+5 scenarios (5 passed)
+15 steps (15 passed)
+0m12.334s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

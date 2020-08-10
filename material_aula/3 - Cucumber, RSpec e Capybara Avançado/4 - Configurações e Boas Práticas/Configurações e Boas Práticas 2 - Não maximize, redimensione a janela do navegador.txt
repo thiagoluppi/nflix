@@ -1,0 +1,109 @@
+Cucumber, RSpec e Capybara Avançado > Configurações e Boas Práticas > Não maximize, redimensione a janela do navegador
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Para maximizar a janela:
+
+No arquivo hooks.rb
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  page.driver.browser.manage.window.maximize
+end
+
+Before("@login") do
+  @login_page.go
+  @login_page.logar("tony@stark.com", "pwd123")
+end
+_____________________________________________________________________________________________________
+
+O professor frisou que o melhor não é maximizar a tela em um projeto. O correto seria definir com Negócio um tamanho mínimo de resolução e settar ela.
+Pois, pode acontecer de a automação validar em uma tela grande, mas quando homologação for homologar eles podem testar em uma tela menor, onde não vai ser exibido alguns elementos,
+que na automação foi.
+
+
+Então, após definir a resolução mínima, vamos colocar isso em nosso hooks.rb
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  @login_page.go
+  @login_page.logar("tony@stark.com", "pwd123")
+end
+_____________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

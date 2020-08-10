@@ -1,0 +1,200 @@
+Cucumber, RSpec e Capybara Avançado > Configurações e Boas Práticas > Relatórios para CI
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Até agora fizemos com que nossos relatório fossem criados em html, 
+porém podemos fazer com que ele seja feito para CI (Continuous Integration) como Jenkins, CircleCI, Bitbucket Pipelines, Gitlab etc...
+
+Vamos preparar nosso projeto para trabalhar com json e isso será fundamental para trabalhar com Jenkins.
+
+Então em nosso arquivo cucumber.yaml vamos criar mais um registro:
+
+cucumber.yaml:
+_____________________________________________________________________________________________________
+---
+default: -p dev -p firefox -p html -p pretty
+ci: -p dev -p firefox -p json -p pretty
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+firefox: BROWSER=firefox
+chrome: BROWSER=chrome
+headless: BROWSER=headless
+html: --format html --out=log/report.html
+json: --format json --out=log/report.json
+pretty: --format pretty
+progress: --format progress
+_____________________________________________________________________________________________________
+Se executar o cucumber sem nada, ele vai executar o default no formato html, se passar o "ci" vai executar no formato json e 
+essa execução no parametro CI é fundamental para colocar numa ferramenta de CI
+
+Vamos executar com o parametro CI e ver o relatório em formato json:
+
+λ cucumber -t @login_feliz -p ci
+
+Using the ci, dev, firefox, json and pretty profiles...
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m5.896s
+
+
+report.json:
+
+[
+  {
+    "uri": "features/login.feature",
+    "id": "login",
+    "keyword": "Funcionalidade",
+    "name": "Login",
+    "description": "  Para que eu possa gerenciar o catalogo do Ninjaflix\n  Sendo um usuário previamente cadastrado\n  Posso acessar o sistema com meu email e senha",
+    "line": 3,
+    "elements": [
+      {
+        "id": "login;acesso",
+        "keyword": "Cenario",
+        "name": "Acesso",
+        "description": "",
+        "line": 9,
+        "type": "scenario",
+        "tags": [
+          {
+            "name": "@login_feliz",
+            "line": 8
+          }
+        ],
+        "before": [
+          {
+            "match": {
+              "location": "capybara-3.18.0/lib/capybara/cucumber.rb:14"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 22700
+            }
+          },
+          {
+            "match": {
+              "location": "capybara-3.18.0/lib/capybara/cucumber.rb:22"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 19200
+            }
+          },
+          {
+            "match": {
+              "location": "features/support/hooks.rb:1"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3633492200
+            }
+          }
+        ],
+        "steps": [
+          {
+            "keyword": "Quando ",
+            "name": "eu faço login com \"tony@stark.com\" e \"pwd123\"",
+            "line": 10,
+            "match": {
+              "location": "features/step_definitions/login_steps.rb:2"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1818857000
+            }
+          },
+          {
+            "keyword": "Então ",
+            "name": "devo ser autenticado",
+            "line": 11,
+            "match": {
+              "location": "features/step_definitions/login_steps.rb:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 14442300
+            }
+          },
+          {
+            "keyword": "E ",
+            "name": "devo ver \"Tony Stark\" na área logada",
+            "line": 12,
+            "match": {
+              "location": "features/step_definitions/login_steps.rb:11"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 215508000
+            }
+          }
+        ],
+        "after": [
+          {
+            "match": {
+              "location": "capybara-3.18.0/lib/capybara/cucumber.rb:10"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 121644000
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
+
+E esse relatório é muito bom para trabalhar com o Jenkins
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

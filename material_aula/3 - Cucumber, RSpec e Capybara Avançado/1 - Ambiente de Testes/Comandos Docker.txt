@@ -1,0 +1,84 @@
+Para começar criando uma rede local:
+λ docker network create --driver bridge skynet
+
+("skynet" é o nome dado à rede)
+
+
+-Para baixar imagens (imagens de banco de dados, de APIs, etc...): docker pull + o nome que quer baixar
+λ docker pull postgres
+λ docker pull papitoio/nflix-api-users
+
+
+
+Para criar containers:
+λ docker run --name pgdb --network=skynet -e "POSTGRES_PASSWORD=qaninja" -p 5432:5432 -v var/lib/postgresql/data -d postgres
+
+Onde: pgdb é o nome do container; skynet é nome da rede onde o container vai ficar; POSTGRES_PASSWORD=qaninja é variável de ambiente para preencher a senha; 
+5432:5432 é a porta padrão pelo qual ele vai conectar; var/lib/postgresql/data é o nome do repositório do arquivo de dados; -d é para ele executar "desatachado". 
+Se esse comando não for dado, todo log de execução do servidor(container) vai aparecer no cmder e isso atrapalha; e por fim postgres é para ele saber qual a imagem ele vai usar para subir esse container.
+
+Para criar um container cuja imagem ainda não baixou:
+λ docker run --name pgadmin --network=skynet -e "PGADMIN_DEFAULT_EMAIL=root@qaninja.io" -e "PGADMIN_DEFAULT_PASSWORD=qaninja" -p 15432:80 -d dpage/pgadmin4
+
+Onde: explicando a porta: foi colocado 1 na frente da porta apenas para diferenciar e porque ele vai subir na porta :80 e não se quer expor ele pra web, por isso fica com a porta 15432:80, 
+pois ele será exposto apenas na porta 15432. Não precisou fazer o pull da imagem do adminstrador do banco de dados porque o comando run já faz um pull antes de executar, e se não tiver a imagem ele vai buscar (pull)
+
+Para acessar o container onde está a ferramenta que faz o gerenciamento do banco de dados pelo browser é só digitar na url:
+localhost:5432
+
+
+
+
+-Para ver os containers ativos:
+docker ps
+
+-Para ver os containers, ainda que parados:
+docker ps -a
+
+-Para inicializar um container: docker start + o nome do container:
+docker start pgdb
+docker start pgadmin
+
+Onde: pgdb é o nome dado ao fazer o comando "docker run"
+
+
+-Para ver as imagens, containers baixados, porém ainda não ativos
+λ docker images
+
+exemplo de resultado:
+REPOSITORY                 TAG                 IMAGE ID            CREATED             SIZE
+postgres                   latest              f88dfa384cc4        2 weeks ago         348MB
+dpage/pgadmin4             latest              177213947c28        2 weeks ago         265MB
+papitoio/nflix-api-users   latest              a768e85cef52        2 months ago        942MB
+
+
+
+
+λ docker run --name nflix-api-users --network=skynet -e "DATABASE=pgdb" -p 3001:3001 -d papitoio/nflix-api-users
+
+Onde: -e "DATABASE=pgdb" é exatamente o nome do banco de dados passado acima com o comando run também.
+
+Para acessar o container onde está a API pelo browser é só digitar na url:
+localhost:3001
+localhost:3001/apidoc
+Acessa a documentação da API pelo browser
+
+
+Site onde tem algumas informações sobre como remover imagens e containers no docker:
+https://www.hostinger.com.br/tutoriais/remover-imagem-docker/
+
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+
+
+
+
+
+
+
+
+

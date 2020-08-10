@@ -1,0 +1,181 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Data Driven Testing / Scenario Outline
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+----------------------------------------------------------------------------------------
+						DATA DRIVEN TEST FRAMEWORK
+				Test
+Data File >>>>>>>>>>>>>>>> Driver Script >>>>>>>>>>>>>>>>>>>> Application Under Test
+	#			Data													#
+	#																	#
+	#		Expected									Actual			#
+	#>>>>>>>>>>>>>>>>>>>>> Test Result(Compare) <<<<<<<<<<<<<<<<<<<<<<<<#
+			Output										Output
+----------------------------------------------------------------------------------------
+No framework acima temos o teste guiado a dados:
+Temos um arquivo de dados que manda os dados para o script, que por sua vez testa esses dados na aplicação
+o banco envia a saida esperada
+a aplicação envia a saida real
+e os resultados são comparados ao final
+
+Vamos aplicar essa técnica usando o BDD, onde nosso arquivo de feature será o que vai prover a massa de dados ou seja, vai agir como um arquivo de dados
+
+E mais uma vez iremos usar o arquivo BDD da ultima aula, pois nós ainda não o finalizamos:
+
+#language: pt
+
+Funcionalidade: Login
+
+Para que eu possa gerenciar os filmes do catálogo Ninjaflix
+Sendo um usuário previamente cadastrado
+Posso acessar o sistema com o meu email e senha
+
+@login_feliz
+Cenário: Acesso
+Quando eu faço login com "tony@stark.com" e "pwd123"
+Então devo ser autenticado
+E devo ver "Tony Stark" na área logada
+
+@login_infeliz
+Cenário: Senha inválida
+Quando​​ eu faço login com "tony@stark.com"​ e "abc123"
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Usuário e/ou senha inválidos"
+
+@login_infeliz
+Cenário: Usuário não existe
+Quando​​ eu faço login com "404@yahoo.com" e "abc123"
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Usuário e/ou senha inválidos"
+
+@login_infeliz
+Cenário: Email não informado
+Quando​ eu faço login com "" e "abcxpto"
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Opps. Cadê o email?"
+
+@login_infeliz
+Cenário: Senha não informada
+Quando​ eu faço login com "teste@gmail.com" e ""
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Opps. Cadê a senha?"
+
+Na verdade, nós já o terminamos, pois se prestarmos atenção, tudo já está feito, pois o cucumber reaproveita o código para fazer o resto dos passos
+Para testarmos isso, vamos apenas copiar a tag do @login_infeliz para o restante dos passos e poderemos observar que tudo já está implementado
+
+Feito isso, vamos executar para ver o resultado:
+
+λ cucumber -t @login_infeliz
+
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_infeliz
+  Cenario: Senha inválida                                          # features/login.feature:15
+    Quando eu faço login com "tony@stark.com" e "abc123"           # features/step_definitions/login_steps.rb:2
+    Então não devo ser autenticado                                 # features/step_definitions/login_steps.rb:20
+    E devo ver a mensagem de alerta "Usuário e/ou senha inválidos" # features/step_definitions/login_steps.rb:26
+
+  @login_infeliz
+  Cenario: usuário não existe                                      # features/login.feature:21
+    Quando eu faço login com "404@yahoo.com" e "abc123"            # features/step_definitions/login_steps.rb:2
+    Então não devo ser autenticado                                 # features/step_definitions/login_steps.rb:20
+    E devo ver a mensagem de alerta "Usuário e/ou senha inválidos" # features/step_definitions/login_steps.rb:26
+
+  @login_infeliz
+  Cenario: Email não informado                            # features/login.feature:27
+    Quando eu faço login com "" e "abxpto"                # features/step_definitions/login_steps.rb:2
+    Então não devo ser autenticado                        # features/step_definitions/login_steps.rb:20
+    E devo ver a mensagem de alerta "Opps. Cadê o email?" # features/step_definitions/login_steps.rb:26
+
+  @login_infeliz
+  Cenario: Senha não informada                            # features/login.feature:33
+    Quando eu faço login com "teste@gmail.com" e ""       # features/step_definitions/login_steps.rb:2
+    Então não devo ser autenticado                        # features/step_definitions/login_steps.rb:20
+    E devo ver a mensagem de alerta "Opps. Cadê a senha?" # features/step_definitions/login_steps.rb:26
+
+4 scenarios (4 passed)
+12 steps (12 passed)
+0m9.427s
+
+Repare que todos os cenários executaram com sucesso sem precisar codificar os outros passos. Porém, pode melhorar ainda mais nosso arquivo feature e deixar ele ainda melhor.
+
+Como os 4 ultimos cenários do nosso arquivo de feature têm o mesmo comportamento, podemos melhorar com cenário outline ou esquema do cenário:
+
+#language: pt
+
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso
+    Quando eu faço login com "tony@stark.com" e "pwd123"
+    Então devo ser autenticado
+    E devo ver "Tony Stark" na área logada
+
+  @login_infeliz
+  Esquema do Cenario: Login sem sucesso
+    Quando eu faço login com <email> e <senha>
+    Então não devo ser autenticado
+    E devo ver a mensagem de alerta <texto>
+
+    Exemplos:
+      |email              |senha    |texto                          |
+      |"tony@stark.com"   |"abc123" |"Usuário e/ou senha inválidos" |
+      |"404@yahoo.com"    |"abc123" |"Usuário e/ou senha inválidos" |
+      |""                 |"abxpto" |"Opps. Cadê o email?"          |
+      |"teste@gmail.com"  |""       |"Opps. Cadê a senha?"          |
+
+No cenário outline ou esquema do cenário criamos <variáveis> e uma tabela de exemplos que vai servir como um arquivo de dados, mais ou menos como no framework passado lá em cima, provendo os dados.
+Ele executa todas as linhas da tabela, substituindo as variáveis, tornando o arquivo feature mais limpo e mais eficaz. 
+
+Vamos executar para ver o resultado:
+
+λ cucumber -t @login_infeliz
+
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_infeliz
+  Esquema do Cenario: Login sem sucesso        # features/login.feature:15
+    Quando eu faço login com <email> e <senha> # features/login.feature:16
+    Então não devo ser autenticado             # features/login.feature:17
+    E devo ver a mensagem de alerta <texto>    # features/login.feature:18
+
+    Exemplos:
+      | email             | senha    | texto                          |
+      | "tony@stark.com"  | "abc123" | "Usuário e/ou senha inválidos" |
+      | "404@yahoo.com"   | "abc123" | "Usuário e/ou senha inválidos" |
+      | ""                | "abxpto" | "Opps. Cadê o email?"          |
+      | "teste@gmail.com" | ""       | "Opps. Cadê a senha?"          |
+
+4 scenarios (4 passed)
+12 steps (12 passed)
+0m8.757s
+
+
+
+
+
+
+
+
+
+
+
+

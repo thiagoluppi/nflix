@@ -1,0 +1,330 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Capacitor de fluxo
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+
+Nessa aula vamos implemtnar o cenário duplicado, porém vamos fazer uma pequena modificação nele, de modo que possamos reaproveitar passos.
+
+Como está agora:
+_____________________________________________________________________________________________________
+#language:pt
+
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver o novo filme na lista
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação <texto>
+
+    Exemplos:
+      | codigo                | texto                                           |
+      | "sem_titulo"          | "Oops - Filme sem titulo. Pode isso Arnaldo?"   |
+      | "sem_status"          | "Oops - O status deve ser informado!"           |
+      | "sem_ano"             | "Oops - Faltou o ano de lançamento também!"     |
+      | "sem_data_lançamento" | "Oops - Quase lá, só falta a data de estréia!"  |
+
+Cenario: Duplicado
+    Dado que "Deadpool 2" já foi cadastrado
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix."
+_____________________________________________________________________________________________________
+
+E agora como ficou:
+_____________________________________________________________________________________________________
+#language:pt
+
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver o novo filme na lista
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação <texto>
+
+    Exemplos:
+      | codigo                | texto                                           |
+      | "sem_titulo"          | "Oops - Filme sem titulo. Pode isso Arnaldo?"   |
+      | "sem_status"          | "Oops - O status deve ser informado!"           |
+      | "sem_ano"             | "Oops - Faltou o ano de lançamento também!"     |
+      | "sem_data_lançamento" | "Oops - Quase lá, só falta a data de estréia!"  |
+
+@dup_movie
+Cenario: Duplicado
+    Dado que "deadpool2" é um novo filme
+    Mas este filme já existe no catalogo
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix."
+_____________________________________________________________________________________________________
+Dessa forma podemos aproveitar o passo do Dado que já existe
+
+O próximo passo agora é alterar também nosso arquivo yaml para ter essa nova massa:
+_____________________________________________________________________________________________________
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+spider:
+  titulo: "Homem Aranha Longe de Casa"
+  status: "Pré-venda"
+  ano: 2019
+  data_lançamento: "04/07/2019"
+  elenco: ["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"]
+  sinópse: "Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão"
+  capa: "spider.jpg"
+joker:
+  titulo: "Coringa"
+  status: "Em breve"
+  ano: 2019
+  data_lançamento: "01/12/2020"
+  elenco: ["Joaquin Phoenix"]
+  sinópse: "O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City"
+  capa: "coringa.jpg"
+deadpool2:
+  titulo: "Deadpool 2"
+  status: "Disponível"
+  ano: 2018
+  data_lançamento: "01/05/2018"
+  elenco: ["Ryan Reynolds", "Josh Brolin"]
+  sinópse: "O super soldado Cable vem do futuro com a missão de detonar um jovem mutante e o Deadpool deve salvá-lo"
+  capa: "dp2.jpg"
+sem_titulo:
+  titulo: ""
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_status:
+  titulo: "Filme Teste"
+  status: ""
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_ano:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: ""
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_data_lançamento:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: ""
+  elenco: []
+  sinópse: ""
+  capa: ""
+_____________________________________________________________________________________________________
+
+Agora que temos o yaml atualizado podemos rodar a automação para pegar o snippet:
+
+λ cucumber -t @dup_movie
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @dup_movie
+  Cenario: Duplicado                                                          # features/cadastro_filmes.feature:40
+    Dado que "deadpool2" é um novo filme                                      # features/step_definitions/filme_steps.rb:1
+    Mas este filme já existe no catalogo                                      # features/cadastro_filmes.feature:42
+    Quando eu faço o cadastro deste filme                                     # features/step_definitions/filme_steps.rb:8
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix." # features/step_definitions/filme_steps.rb:19
+
+1 scenario (1 undefined)
+4 steps (2 skipped, 1 undefined, 1 passed)
+0m44.616s
+
+You can implement step definitions for undefined steps with these snippets:
+
+Dado("este filme já existe no catalogo") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+
+Vamos copiar e colar em nosso arquivo filme_steps.rb:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme)
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+_____________________________________________________________________________________________________
+Poderíamos simplesmente copiar o passo Quando para dentro dele e daria certo, porém podemos usar o banco de dados diretamente para fazer isso
+
+Vamos utilizar a seguinte query:
+
+sql_script = INSERT INTO public.movies(title, status, year, release_date, created_at, updated_at)
+    VALUES('Deadpool 2', 'Disponivel', 2018, '01/05/2018', current_timestamp, current_timestamp);
+
+e vamos adaptar essa query para ficar certinha no ruby:
+_____________________________________________________________________________________________________
+require "pg"
+
+class Database
+  def initialize
+    @connection = PG.connect(host: "localhost", dbname: "nflix", user: "postgres", password: "qaninja")
+  end
+
+  def delete_movie(title)
+    @connection.exec("DELETE from public.movies where title = '#{title}';")
+  end
+
+  def insert_movie(movie)
+    sql_script = "INSERT INTO public.movies (title, status, year, release_date, created_at, updated_at)" \
+    " VALUES('#{movie["titulo"]}', '#{movie["status"]}', '#{movie["ano"]}', '#{movie["data_lançamento"]}', current_timestamp, current_timestamp);"
+
+    @connection.exec(sql_script)
+  end
+end
+_____________________________________________________________________________________________________
+Como essa é um query multi-line, temos que passar a barra \ no final da linha para informar que se trata de uma query multi-line
+A segunda linha precisa começar com espaço, pois, apesar da query ser multi-line, ela é uma query só e precisa ter espaço entre uma coisa e outra
+
+Agora vamos implementar o código da camada de steps do filme_steps.rb:
+
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme)
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+_____________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	
+

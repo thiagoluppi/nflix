@@ -1,0 +1,402 @@
+Cucumber, RSpec e Capybara Avançado > Configurações e Boas Práticas > Anexando Evidências no Relatório
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Vamos implementar agora os screen shots em nosso relatórios.
+
+
+E para isso vamos implementar em nosso arquivo hooks.rb um After que vai ser executado sempre ao final de cada teste
+
+hooks.rb:
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do
+  page.save_screenshot("log/temp_screenshot.png")
+end
+_____________________________________________________________________________________________________
+Estamos usando o método save_screenshot e estamos salvando ele no local passado em paranteses.
+
+
+Agora vamos executar para ver o resultado:
+
+λ cucumber features\login.feature
+
+Using the default, dev, firefox, html and pretty profiles...
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+  @login_infeliz
+  Esquema do Cenario: Login sem sucesso        # features/login.feature:15
+    Quando eu faço login com <email> e <senha> # features/login.feature:16
+    Então não devo ser autenticado             # features/login.feature:17
+    E devo ver a mensagem de alerta <texto>    # features/login.feature:18
+
+    Exemplos:
+      | email             | senha    | texto                          |
+      | "tony@stark.com"  | "abc123" | "Usuário e/ou senha inválidos" |
+      | "404@yahoo.com"   | "abc123" | "Usuário e/ou senha inválidos" |
+      | ""                | "abxpto" | "Opps. Cadê o email?"          |
+      | "teste@gmail.com" | ""       | "Opps. Cadê a senha?"          |
+
+5 scenarios (5 passed)
+15 steps (15 passed)
+0m21.660s
+
+
+Dentro da pasta log foi criado um arquivo de foto chamado temp_screenshot.png. Que contém um screenshot do cenário cujo login falha e está escrito "Opps. Cade a senha?"
+
+Essa foto se remete ao ultimo cenário que foi executado, nesse caso:
+
+#language: pt
+
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso
+    Quando eu faço login com "tony@stark.com" e "pwd123"
+    Então devo ser autenticado
+    E devo ver "Tony Stark" na área logada
+
+  @login_infeliz
+  Esquema do Cenario: Login sem sucesso
+    Quando eu faço login com <email> e <senha>
+    Então não devo ser autenticado
+    E devo ver a mensagem de alerta <texto>
+
+    Exemplos:
+      |email              |senha    |texto                          |
+      |"tony@stark.com"   |"abc123" |"Usuário e/ou senha inválidos" |
+      |"404@yahoo.com"    |"abc123" |"Usuário e/ou senha inválidos" |
+      |""                 |"abxpto" |"Opps. Cadê o email?"          |
+      |"teste@gmail.com"  |""       |"Opps. Cadê a senha?"          |
+
+A foto então é sobre o ultimo cenario: |"teste@gmail.com"  |""       |"Opps. Cadê a senha?"          |
+
+Embora ele tenha tirado print de todos os cenários, ele salvou apenas a ultima foto. E é isso mesmo que a gente quer, pois não vamos trabalhar com evidencias em forma de imagens.
+
+
+Vamos salvar o resultado de "page.save_screenshot("log/temp_screenshot.png")" em uma variável:
+temp_shot = page.save_screenshot("log/temp_screenshot.png")
+
+
+e em seguida vamos converter essa foto em binário usando o método:
+Base64.encode64()
+
+Mas não vamos apenas usar a variável dentro do método, pois ele não vai conseguir converter:
+Base64.encode64(temp_shot)
+
+Vamos ter que abrir esse arquivo usando o ruby e ai sim passar passar temp_shot:
+File.open(temp_shot)
+
+e no final lemos o arquivo:
+File.open(temp_shot).read
+
+ficando assim:
+Base64.encode64(File.open(temp_shot).read)
+
+e vamos guardar tudo em uma variável:
+screenshot = Base64.encode64(File.open(temp_shot).read)
+
+e por fim vamos chamar o método que anexa ao relatório:
+embed(screenshot, "image/png", "Screenshot")
+
+embed(screenshot já convertido para base64, "o tipo do arquivo anexo, nesse caso imagem png", "nome do link para ter acesso ao screenshot lá no relatório")
+
+hooks.rb:
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do
+  temp_shot = page.save_screenshot("log/temp_screenshot.png")
+  screenshot = Base64.encode64(File.open(temp_shot).read)
+
+  embed(screenshot, "image/png", "Screenshot")
+end
+_____________________________________________________________________________________________________
+
+Fazendo do modo acima, minha variável screenshot estava recebendo apenas parte do binário. E isso fazia com que o link pra foto no relatório html não funcionasse.
+
+Isso se dava por conta de um parâmetro "rb" no comando de conversão:
+screenshot = Base64.encode64(File.open(temp_shot).read) >>>>> screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+
+Essa solução estava com um dos alunos da QA Ninja na video aula.
+
+O hooks.rb vai ficar assim:
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do
+  temp_shot = page.save_screenshot("log/temp_screenshot.png")
+  screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+
+  # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+  # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+  # File.new("screenshot.txt", "w").puts screenshot
+
+  embed(screenshot, "image/png", "Screenshot")
+end
+_____________________________________________________________________________________________________
+
+A linha acima:
+
+File.new("screenshot.txt", "w").puts screenshot 
+
+não faz parte da automação por assim dizer,
+foi usada apenas para criar um arquivo.txt a partir da variavel screenshot:
+File.new("nome do arquivo txt", "w signifca "write", ou seja, é o parametro para dizer que quer que ele escreva no arquivo").puts screenshot
+ao fim foi usado o método puts que serve para escrever. E ele vai escrever o que? O conteudo da variavel screenshot
+
+
+Voltando:
+
+Fazendo com que o hooks.rb execute esse After vai fazer com que um arquivo de relatorio html seja gerado. Nesse arquivo vão ter todo os passos do teste 
+e as imagens de cada passo anexadas a ele.
+Observando o relatorio html dá para ver que nele não consta as imagens, mas sim os binários das imagens.
+
+
+Agora vamos rodar no parametro CI e para isso vamos fazer algumas mudanças no arquivo cucumber.yaml
+
+cucumber.yaml
+_____________________________________________________________________________________________________
+---
+default: -p dev -p firefox -p html -p pretty
+ci: -p dev -p headless -p json -p progress
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+firefox: BROWSER=firefox
+chrome: BROWSER=chrome
+headless: BROWSER=headless
+html: --format html --out=log/report.html
+json: --format json --out=log/report.json
+pretty: --format pretty
+progress: --format progress
+_____________________________________________________________________________________________________
+O parametro ci agora vai ficar como headless, pois faz mais sentido rodar sem interface grafica para ci
+
+Agora vamos rodar novamente
+
+λ cucumber features\login.feature -p ci
+Using the ci, dev, headless, json and progress profiles...
+
+DevTools listening on ws://127.0.0.1:58288/devtools/browser/30a71f7c-4513-46f2-aa38-a6e1f4be3658
+[0803/190211.065:INFO:CONSOLE(24)] "[HMR] Waiting for update signal from WDS...", source: webpack-internal:///./node_modules/webpack/hot/log.js (24)
+[0803/190211.339:INFO:CONSOLE(7997)] "Download the Vue Devtools extension for a better development experience:
+https://github.com/vuejs/vue-devtools", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (7997)
+[0803/190211.340:INFO:CONSOLE(8007)] "You are running Vue in development mode.
+Make sure to turn on production mode when deploying for production.
+See more tips at https://vuejs.org/guide/deployment.html", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (8007)
+[0803/190211.362:INFO:CONSOLE(74)] "[WDS] Hot Module Replacement enabled.", source: webpack-internal:///./node_modules/webpack-dev-server/client/index.js (74)
+...[0803/190214.952:INFO:CONSOLE(24)] "[HMR] Waiting for update signal from WDS...", source: webpack-internal:///./node_modules/webpack/hot/log.js (24)
+[0803/190215.213:INFO:CONSOLE(7997)] "Download the Vue Devtools extension for a better development experience:
+https://github.com/vuejs/vue-devtools", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (7997)
+[0803/190215.213:INFO:CONSOLE(8007)] "You are running Vue in development mode.
+Make sure to turn on production mode when deploying for production.
+See more tips at https://vuejs.org/guide/deployment.html", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (8007)
+[0803/190215.226:INFO:CONSOLE(74)] "[WDS] Hot Module Replacement enabled.", source: webpack-internal:///./node_modules/webpack-dev-server/client/index.js (74)
+...[0803/190218.707:INFO:CONSOLE(24)] "[HMR] Waiting for update signal from WDS...", source: webpack-internal:///./node_modules/webpack/hot/log.js (24)
+[0803/190218.813:INFO:CONSOLE(7997)] "Download the Vue Devtools extension for a better development experience:
+https://github.com/vuejs/vue-devtools", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (7997)
+[0803/190218.813:INFO:CONSOLE(8007)] "You are running Vue in development mode.
+Make sure to turn on production mode when deploying for production.
+See more tips at https://vuejs.org/guide/deployment.html", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (8007)
+[0803/190218.849:INFO:CONSOLE(74)] "[WDS] Hot Module Replacement enabled.", source: webpack-internal:///./node_modules/webpack-dev-server/client/index.js (74)
+...[0803/190222.347:INFO:CONSOLE(24)] "[HMR] Waiting for update signal from WDS...", source: webpack-internal:///./node_modules/webpack/hot/log.js (24)
+[0803/190222.458:INFO:CONSOLE(7997)] "Download the Vue Devtools extension for a better development experience:
+https://github.com/vuejs/vue-devtools", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (7997)
+[0803/190222.458:INFO:CONSOLE(8007)] "You are running Vue in development mode.
+Make sure to turn on production mode when deploying for production.
+See more tips at https://vuejs.org/guide/deployment.html", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (8007)
+[0803/190222.487:INFO:CONSOLE(74)] "[WDS] Hot Module Replacement enabled.", source: webpack-internal:///./node_modules/webpack-dev-server/client/index.js (74)
+...[0803/190225.959:INFO:CONSOLE(24)] "[HMR] Waiting for update signal from WDS...", source: webpack-internal:///./node_modules/webpack/hot/log.js (24)
+[0803/190226.071:INFO:CONSOLE(7997)] "Download the Vue Devtools extension for a better development experience:
+https://github.com/vuejs/vue-devtools", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (7997)
+[0803/190226.071:INFO:CONSOLE(8007)] "You are running Vue in development mode.
+Make sure to turn on production mode when deploying for production.
+See more tips at https://vuejs.org/guide/deployment.html", source: webpack-internal:///./node_modules/vue/dist/vue.runtime.esm.js (8007)
+[0803/190226.104:INFO:CONSOLE(74)] "[WDS] Hot Module Replacement enabled.", source: webpack-internal:///./node_modules/webpack-dev-server/client/index.js (74)
+...
+
+5 scenarios (5 passed)
+15 steps (15 passed)
+0m27.405s
+
+Foi salvo também um relatorio.json contendo todas as imagens encodadas nele.
+
+
+
+Estamos tirando print de todos os cenários, mesmo os que não falham e se quisermos printar apenas os cenários que falharam?
+Podemos implementar um if que só vai executar se o cenário falhar:
+
+After do |cenario|
+  if cenario.failed?
+    temp_shot = page.save_screenshot("log/temp_screenshot.png")
+    screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+    embed(screenshot, "image/png", "Screenshot")
+
+    # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+    # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+    # File.new("screenshot.txt", "w").puts screenshot
+  end
+end
+
+hooks.rb:
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do |cenario|
+  if cenario.failed?
+    temp_shot = page.save_screenshot("log/temp_screenshot.png")
+    screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+    embed(screenshot, "image/png", "Screenshot")
+
+    # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+    # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+    # File.new("screenshot.txt", "w").puts screenshot
+  end
+end
+_____________________________________________________________________________________________________
+
+
+Mas como o intuito do curso não é fazer assim, vamos voltar ao que era antes e comentar essa parte:
+
+hooks.rb:
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do |cenario|
+  # if cenario.failed?
+    temp_shot = page.save_screenshot("log/temp_screenshot.png")
+    screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+    embed(screenshot, "image/png", "Screenshot")
+
+    # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+    # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+    # File.new("screenshot.txt", "w").puts screenshot
+  # end
+end
+_____________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

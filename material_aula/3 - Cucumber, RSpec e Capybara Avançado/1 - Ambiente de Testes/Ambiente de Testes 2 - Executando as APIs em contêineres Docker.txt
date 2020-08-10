@@ -1,0 +1,178 @@
+Cucumber, RSpec e Capybara Avançado > Ambiente de Testes > Executando as APIs em contêineres Docker
+_____________________________________________________________________________________________________
+
+Nessa aula vamos instalar as APIs do Ninjaflix
+
+Para começar vamos executar o comando para baixar a imagem, dar o pull na imagem
+λ docker pull papitoio/nflix-api-users
+
+latest: Pulling from papitoio/nflix-api-users
+a4d8138d0f6b: Pull complete
+dbdc36973392: Pull complete
+f59d6d019dd5: Pull complete
+aaef3e026258: Pull complete
+6e454d3b6c28: Pull complete
+c717a7c205aa: Pull complete
+37add8e5ac11: Pull complete
+0314ab675d31: Pull complete
+012886364728: Pull complete
+478009338136: Pull complete
+f1099d46493b: Pull complete
+3a0d3512e60f: Pull complete
+8c2da919ce93: Pull complete
+9229c6047ae7: Pull complete
+Digest: sha256:3bff40e6518831ff93faab1c14728f0dac485d56ae6018551078f73a9fcc6f66
+Status: Downloaded newer image for papitoio/nflix-api-users:latest
+docker.io/papitoio/nflix-api-users:latest
+
+para vermos essa nova imagem baixada:
+λ docker images
+
+agora vamos criar o container dessa imagem
+λ docker run --name nflix-api-users --network=skynet -e "DATABASE=pgdb" -p 3001:3001 -d papitoio/nflix-api-users
+
+Onde: -e "DATABASE=pgdb" é exatamente o nome do banco de dados:
+λ docker ps
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                            NAMES
+8b0785711806        dpage/pgadmin4      "/entrypoint.sh"         48 minutes ago      Up 48 minutes       443/tcp, 0.0.0.0:15432->80/tcp   pgadmin
+29f87f9d933d        postgres            "docker-entrypoint.s…"   57 minutes ago      Up 57 minutes       0.0.0.0:5432->5432/tcp           pgdb
+
+Vamos testar se a API está no ar. Para isso abra o browser e digite:
+http://localhost:3001/
+
+vc deve ver:
+{
+    "status": "NinjaFlix - Users API"
+}
+
+Para ver a documentação da API:
+http://localhost:3001/apidoc/
+
+
+Vamos voltar ao terminal e subir a API Movies
+
+λ docker pull papitoio/nflix-api-movies
+
+Using default tag: latest
+latest: Pulling from papitoio/nflix-api-movies
+e79bb959ec00: Pull complete
+d4b7902036fe: Pull complete
+1b2a72d4e030: Pull complete
+d54db43011fd: Pull complete
+69d473365bb3: Pull complete
+6e2490ee2dc8: Pull complete
+fc66dfb5c5fd: Pull complete
+f0614876c4bf: Pull complete
+d8caba1ffcea: Pull complete
+fa43bfc52b3b: Pull complete
+76aaec6fbb07: Pull complete
+314ddd3a3311: Pull complete
+52ed05076cdb: Pull complete
+Digest: sha256:4cd794a49b58035ee1dd8755e34a1bf67e5e915ecc551ee5279d927a8991dc2a
+Status: Downloaded newer image for papitoio/nflix-api-movies:latest
+docker.io/papitoio/nflix-api-movies:latest
+
+Pronto, a imagem de Movies foi baixada
+
+Agora vamos criar o container dessa imagem:
+λ docker run --name nflix-api-movies --network=skynet -e "DATABASE=pgdb" -p 3002:3002 -d papitoio/nflix-api-movies
+
+λ docker ps
+CONTAINER ID        IMAGE                       COMMAND                  CREATED              STATUS              PORTS                            NAMES
+6e63d04e1599        papitoio/nflix-api-movies   "npm start"              About a minute ago   Up About a minute   0.0.0.0:3002->3002/tcp           nflix-api-movies
+1fe017d42b15        papitoio/nflix-api-users    "docker-entrypoint.s…"   24 minutes ago       Up 24 minutes       0.0.0.0:3001->3001/tcp           nflix-api-users
+8b0785711806        dpage/pgadmin4              "/entrypoint.sh"         About an hour ago    Up About an hour    443/tcp, 0.0.0.0:15432->80/tcp   pgadmin
+29f87f9d933d        postgres                    "docker-entrypoint.s…"   About an hour ago    Up About an hour    0.0.0.0:5432->5432/tcp           pgdb
+
+
+Vamos ver se a API subiu:
+http://localhost:3002/
+
+{
+    "status": "NinjaFlix - Movies API"
+}
+
+Para ver a documentação da API:
+http://localhost:3002/apidoc/
+
+
+E por fim vamos fazer o pull da imagem da API Gateway:
+
+λ docker pull papitoio/nflix-api-gateway
+
+Using default tag: latest
+latest: Pulling from papitoio/nflix-api-gateway
+e79bb959ec00: Already exists
+d4b7902036fe: Already exists
+1b2a72d4e030: Already exists
+d54db43011fd: Already exists
+69d473365bb3: Already exists
+6e2490ee2dc8: Already exists
+fc66dfb5c5fd: Already exists
+f0614876c4bf: Already exists
+d8caba1ffcea: Already exists
+4a2363115c52: Pull complete
+a50a52686b54: Pull complete
+9ce47b1c79dd: Pull complete
+e396a4fdaf7c: Pull complete
+Digest: sha256:559cc5cfccf6d9aca10b9e94d28f94e813f42225d3adb8e2cc65f8f8603e6c47
+Status: Downloaded newer image for papitoio/nflix-api-gateway:latest
+docker.io/papitoio/nflix-api-gateway:latest
+
+Agora, mais uma vez, vamos criar o container dessa imagem
+
+Mas nessa aqui vamos ter que passar 3 parâmetros. O primeiro é o normal do banco de dados -e "DATABASE=pgdb", um para referenciar qual é a API Users e um parâmetro para referenciar a API Movies:
+λ docker run --name nflix-api-gateway --network=skynet -e "DATABASE=pgdb" -e "API_USERS=http://nflix-api-users:3001" -e "API_MOVIES=http://nflix-api-movies:3002" -p 3000:3000 -d papitoio/nflix-api-gateway
+
+λ docker ps
+CONTAINER ID        IMAGE                        COMMAND                  CREATED             STATUS              PORTS                            NAMES
+4145babf4460        papitoio/nflix-api-gateway   "npm start"              25 seconds ago      Up 24 seconds       0.0.0.0:3000->3000/tcp           nflix-api-gateway
+6e63d04e1599        papitoio/nflix-api-movies    "npm start"              15 minutes ago      Up 15 minutes       0.0.0.0:3002->3002/tcp           nflix-api-movies
+1fe017d42b15        papitoio/nflix-api-users     "docker-entrypoint.s…"   38 minutes ago      Up 38 minutes       0.0.0.0:3001->3001/tcp           nflix-api-users
+8b0785711806        dpage/pgadmin4               "/entrypoint.sh"         About an hour ago   Up About an hour    443/tcp, 0.0.0.0:15432->80/tcp   pgadmin
+29f87f9d933d        postgres                     "docker-entrypoint.s…"   2 hours ago         Up 2 hours          0.0.0.0:5432->5432/tcp           pgdb
+
+
+Vamos ver se a API subiu:
+http://localhost:3000/
+
+{"status":"NinjaFlix - API Gateway"}
+
+Para ver a documentação da API:
+http://localhost:3002/apidoc/
+
+
+
+
+
+
+###################################
+Antes nessa aula tínhamos que criar 3 API's:
+nflix-api-users
+nflix-api-movies
+nflix-api-gateway
+
+porém o Papito colocou as 3 dentro de um único container, dessa forma só será preciso criar uma: 
+nflix-api
+
+λ docker pull qaninja/nflix-api
+
+
+λ docker run --name nflix-api --network=skynet -e "DATABASE=pgdb" -p 3000:3000 -d qaninja/nflix-api
+
+
+Vamos ver se a API subiu:
+http://localhost:3000/
+
+Não consegui ver a API, dá erro na página
+
+Por algum motivo essa nova API do Papito não estão funcionando. Por isso vou usar as API's antigas mesmo
+###################################
+
+
+
+
+
+
+
+

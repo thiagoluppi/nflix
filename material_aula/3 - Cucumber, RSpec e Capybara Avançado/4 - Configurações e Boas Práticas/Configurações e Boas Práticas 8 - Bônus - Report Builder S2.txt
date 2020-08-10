@@ -1,0 +1,531 @@
+Cucumber, RSpec e Capybara Avançado > Configurações e Boas Práticas > Bônus - Report Builder S2
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Nessa aula vamos aprender como extrair um report usando report builder
+
+https://github.com/rajatthareja/ReportBuilder
+
+No link acima tem todas as instruções para baixar e instalar. Vamos utilizar as instruções do Code Examples: para codificar em nosso arquivo hooks.rb
+
+
+Antes de mais nada o report_builder é uma gem e por isso vamos começar editando nosso Gemfile e colocar essa gema lá:
+
+Gemfile:
+_____________________________________________________________________________________________________
+source "http://rubygems.org"
+
+gem "capybara", "3.18.0"
+gem "cucumber", "3.1.2"
+gem "ffi"
+gem "rspec", "3.8.0"
+gem "selenium-webdriver", "3.142.0"
+gem "pry"
+gem "os", "1.0.1"
+gem "pg", "1.1.4"
+gem "report_builder"
+_____________________________________________________________________________________________________
+reparem também que existe uma outra gem chamada ffi nesse meio. Essa gem o professor colocou por causa de um problema e não explicou muito. Não tenho mais informações sobre ela nesse momento.
+
+
+Feito isso, voltamos ao terminal para instalar as dependencias:
+
+λ bundle install
+
+
+Ao acessar o link acima, na sessão Code Examples, podemos ver alguns exemplos de como implementar isso em nosso código,
+vamos utilizar o Ex 1:
+_____________________________________________________________________________________________________
+require 'report_builder'
+    
+# Ex 1:
+ReportBuilder.configure do |config|
+  config.input_path = 'results/cucumber_json'
+  config.report_path = 'my_test_report'
+  config.report_types = [:retry, :html]
+  config.report_title = 'My Test Results'
+  config.additional_info = {browser: 'Chrome', environment: 'Stage 5'}
+end
+_____________________________________________________________________________________________________
+Podemos observar que ele segue um padrão bem parecido com o encontrado no arquivo env.rb 
+
+
+Agora em nosso arquivo hooks.rb vamos colar esse código
+
+hooks.rb:
+_____________________________________________________________________________________________________
+require "report_builder"
+
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do |cenario|
+  # if cenario.failed?
+  temp_shot = page.save_screenshot("log/temp_screenshot.png")
+  screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+  embed(screenshot, "image/png", "Screenshot")
+
+  # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+  # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+  # File.new("screenshot.txt", "w").puts screenshot
+  # end
+end
+
+ReportBuilder.configure do |config|
+  config.input_path = "results/cucumber_json"
+  config.report_path = "my_test_report"
+  config.report_types = [:retry, :html]
+  config.report_title = "My Test Results"
+  config.additional_info = { browser: "Chrome", environment: "Stage 5" }
+end
+_____________________________________________________________________________________________________
+Com o require no topo, claro.
+
+
+Vamos também fazer uma mudança no cucumber.yaml para que o default do relatório agora seja o padrão json e não mais html:
+
+cucumber.yaml:
+_____________________________________________________________________________________________________
+---
+default: -p dev -p firefox -p json -p pretty
+ci: -p dev -p headless -p json -p progress
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+firefox: BROWSER=firefox
+chrome: BROWSER=chrome
+headless: BROWSER=headless
+html: --format html --out=log/report.html
+json: --format json --out=log/report.json
+pretty: --format pretty
+progress: --format progress
+_____________________________________________________________________________________________________
+
+
+Como queremos que o relatório do report builder seja executado ao final, vamos usar um recurso chamado at_exit e colocar o código do report builder lá dentro
+
+hooks.rb:
+_____________________________________________________________________________________________________
+require "report_builder"
+
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do |cenario|
+  # if cenario.failed?
+  temp_shot = page.save_screenshot("log/temp_screenshot.png")
+  screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+  embed(screenshot, "image/png", "Screenshot")
+
+  # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+  # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+  # File.new("screenshot.txt", "w").puts screenshot
+  # end
+end
+
+at_exit do
+  ReportBuilder.configure do |config|
+    config.input_path = "results/cucumber_json"
+    config.report_path = "my_test_report"
+    config.report_types = [:retry, :html]
+    config.report_title = "My Test Results"
+    config.additional_info = { browser: "Chrome", environment: "Stage 5" }
+  end
+end
+_____________________________________________________________________________________________________
+
+Essa linha:
+config.input_path = "results/cucumber_json"
+
+pega o relatório no formato json e cria o relatório no formato report builder e por isso que tivemos que mudar o padrão lá no cucumber.yaml para json
+
+Vamos fazer as configurações:
+Como não temos uma pasta chamada results, vamos mudar esse nome para log e também vamos mudar o nome do relatório que no caso é report.json:
+
+hooks.rb:
+_____________________________________________________________________________________________________
+require "report_builder"
+
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do |cenario|
+  # if cenario.failed?
+  temp_shot = page.save_screenshot("log/temp_screenshot.png")
+  screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+  embed(screenshot, "image/png", "Screenshot")
+
+  # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+  # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+  # File.new("screenshot.txt", "w").puts screenshot
+  # end
+end
+
+at_exit do
+  ReportBuilder.configure do |config|
+    config.input_path = "log/report.json"
+    config.report_path = "my_test_report"
+    config.report_types = [:retry, :html]
+    config.report_title = "My Test Results"
+    config.additional_info = { browser: "Chrome", environment: "Stage 5" }
+  end
+end
+_____________________________________________________________________________________________________
+
+Agora eu preciso falar qual é o path do relatório, onde será gravado:
+
+config.report_path = "log/report"
+
+Ele será gravado na pasta log e seu nome será report.html
+
+
+Vamos dar um nome para nosso report:
+config.report_title = "NinjaFlix - WebApp"
+
+Aqui se coloca o nome do projeto ou o nome da empresa, enfim. 
+
+
+Na linha:
+config.report_types = [:retry, :html]
+
+Vamos deixar apenas o tipo html:
+config.report_types = [:html]
+
+
+config.additional_info = { browser: "Chrome", environment: "Stage 5" }
+A ultima linha são as informações adicionais. Por default ele está mostrando chrome como browser e o ambiente como sendo stage 5, mas vamos mudar isso também:
+
+
+hooks.rb:
+_____________________________________________________________________________________________________
+require "report_builder"
+
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do |cenario|
+  # if cenario.failed?
+  temp_shot = page.save_screenshot("log/temp_screenshot.png")
+  screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+  embed(screenshot, "image/png", "Screenshot")
+
+  # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+  # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+  # File.new("screenshot.txt", "w").puts screenshot
+  # end
+end
+
+at_exit do
+  ReportBuilder.configure do |config|
+    config.input_path = "log/report.json"
+    config.report_path = "log/report"
+    config.report_types = [:html]
+    config.report_title = "NinjaFlix - WebApp"
+	config.compress_image = true
+    config.additional_info = { "App" => "Web", "Data de Execução" => "04/08/2020" }
+  end
+end
+_____________________________________________________________________________________________________
+
+Vamos usar a data hard coded, mas depois trocamos.
+
+Também adicionamos um recurso para comprimir a imagem para ela ocupar menos espaço no disco.
+
+E pra finalizar colomos ao final, dentro do at_exit a linha:
+ReportBuilder.build_report
+
+hooks.rb:
+_____________________________________________________________________________________________________
+require "report_builder"
+
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do |cenario|
+  # if cenario.failed?
+  temp_shot = page.save_screenshot("log/temp_screenshot.png")
+  screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+  embed(screenshot, "image/png", "Screenshot")
+
+  # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+  # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+  # File.new("screenshot.txt", "w").puts screenshot
+  # end
+end
+
+at_exit do
+  ReportBuilder.configure do |config|
+    config.input_path = "log/report.json"
+    config.report_path = "log/report.html"
+    config.report_types = [:html]
+    config.report_title = "NinjaFlix - WebApp"
+    config.compress_image = true
+    config.additional_info = { "App" => "Web", "Data de Execução" => "04/08/2020" }
+  end
+
+  ReportBuilder.build_report
+end
+_____________________________________________________________________________________________________
+
+
+
+Agora vamos executar para ver o relatório sendo gerado no novo formato:
+
+Tudo executou normalmente.
+
+Quando o professor executou o cenário de @login_feliz para falhar, a imagem não foi adicionada ao relatório porque faltou aquele argumento "rb" que o aluno da aula passada:
+screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+
+Colocando o "rb" ele pegou o print corretamente.
+
+
+Agora vamos tratar de deixar a data de execução como dinamica:
+
+Vamos começar no hooks.rb dando um require no "date" do ruby, esse já vem padrão, não precisa instalar:
+require "date"
+
+e depois criando uma variável para pegar a data:
+
+hooks.rb:
+_____________________________________________________________________________________________________
+require "report_builder"
+require "date"
+
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do |cenario|
+  # if cenario.failed?
+  temp_shot = page.save_screenshot("log/temp_screenshot.png")
+  screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+  embed(screenshot, "image/png", "Screenshot")
+
+  # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+  # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+  # File.new("screenshot.txt", "w").puts screenshot
+  # end
+end
+
+@current_date = DateTime.now
+
+at_exit do
+  ReportBuilder.configure do |config|
+    config.input_path = "log/report.json"
+    config.report_path = "log/report"
+    config.report_types = [:html]
+    config.report_title = "NinjaFlix - WebApp"
+    config.compress_image = true
+    config.additional_info = { "App" => "Web", "Data de Execução" => @current_date }
+  end
+
+  ReportBuilder.build_report
+end
+_____________________________________________________________________________________________________
+Depois apenas trocamos essa variavel onde estava a data
+
+
+Agora ao gerar o relatório a data de hoje será printada nele: 2020-08-04T20:58:19-03:00
+
+
+Podemos então fazer com que essa data seja printada no nome do relatório, fazendo com que os nomes sejam diferenciados pela data da execução:
+
+
+hooks.rb:
+_____________________________________________________________________________________________________
+require "report_builder"
+require "date"
+
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+
+After do |cenario|
+  # if cenario.failed?
+  temp_shot = page.save_screenshot("log/temp_screenshot.png")
+  screenshot = Base64.encode64(File.open(temp_shot, "rb").read)
+  embed(screenshot, "image/png", "Screenshot")
+
+  # fiz esse código apenas para salvar o resultado num .txt, pois estava dando problema na hora dessa variavel receber todo o binário
+  # e eu queria saber se era por conta de não aparecer no terminal, por não caber ou se não estava mesmo sendo gravado. Era o segundo...
+  # File.new("screenshot.txt", "w").puts screenshot
+  # end
+end
+
+d = DateTime.now
+@current_date = d.to_s.tr(":", "-")
+
+at_exit do
+  ReportBuilder.configure do |config|
+    config.input_path = "log/report.json"
+    config.report_path = "log/" + @current_date
+    config.report_types = [:html]
+    config.report_title = "NinjaFlix - WebApp"
+    config.compress_image = true
+    config.additional_info = { "App" => "Web", "Data de Execução" => @current_date }
+    config.color = "indigo"
+  end
+
+  ReportBuilder.build_report
+end
+_____________________________________________________________________________________________________
+Também mudamos a cor para indigo. A cara do relatório agora ficou azul indigo.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

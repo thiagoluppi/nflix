@@ -1,0 +1,324 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Confirmando e validando a exclusão
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Na aula passada nós chegamos a clicar no botão de exclusão, e nessa aula vamos clicar na confirmação da exclusão e depois verificar se realmente o filme foi excluido
+
+Vamos então escrever o código para o passo:
+
+Quando("eu confirmo a solicitacao") do
+  
+end
+
+Lá no html do site, quando clicamos para deletar um filme, e inspecionamos o elemento de confirmação podemos ver uma classe muito legal para usar em nosso css: swal2-confirm
+
+Vamos utilizar essa classe e montar nosso seletor e para isso vamos criar outro método:
+
+ def confirmar_solicitacao
+    find(".swal2-confirm").click
+  end
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que seleciona o status do filme
+  def select_status(status)
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: status).click
+  end
+
+  # Método que preenche os campos de cadastro de filme
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    # Chama o método que seleciona o status do filme, se status não estiver vazio
+    select_status(filme["status"]) unless filme["status"].empty?
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    # Usa o array de strings de atores e manda a tecla tab
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    # Chama o método que faz upload da capa do filme, se capa não estiver vazia
+    upload(filme["capa"]) unless filme["capa"].empty?
+
+    click_button "create-movie"
+  end
+
+  # Método que faz upload da capa do filme
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+
+    # Muda as barras / para barras invertidas do Windows, se o S.O for Windows
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    # Faz o Capybara não ignorar elementos ocultos
+    Capybara.ignore_hidden_elements = false
+
+    attach_file("upcover", cover_file)
+
+    # Faz ele ignorar elementos ocultos novamente
+    Capybara.ignore_hidden_elements = true
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+  def remove(titulo)
+    filme_tr(titulo).find(".btn-trash").click
+  end
+
+  def confirmar_solicitacao
+    find(".swal2-confirm").click
+  end
+
+  # Alerta quando o cadastro do campo obrigatório falha
+  def alerta
+    find(".alert span").text
+  end
+end
+_____________________________________________________________________________________________________
+
+Agora que o método confirmar_solicitacao foi criado, vamos compor também o código da camada de step:
+
+Quando("eu confirmo a solicitacao") do
+  @filme_page.confirmar_solicitacao
+end
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme["titulo"])
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    E este filme já existe no catalogo
+  }
+end
+
+Quando("eu solicito a exclusao") do
+  @filme_page.remove(@filme["titulo"])
+end
+
+Quando("eu confirmo a solicitacao") do
+  @filme_page.confirmar_solicitacao
+end
+
+Então("este item deve ser removido do catalogo") do
+  snippets here hehe
+end
+_____________________________________________________________________________________________________
+
+Agora vamos codificar o passo onde realmente validamos que esse filme foi deletado:
+
+Primeiramente escrevendo outro método na page object:
+
+def validar_exclusao(titulo)
+    page.has_no_css?("table tbody tr", text: titulo)
+end
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que seleciona o status do filme
+  def select_status(status)
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: status).click
+  end
+
+  # Método que preenche os campos de cadastro de filme
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    # Chama o método que seleciona o status do filme, se status não estiver vazio
+    select_status(filme["status"]) unless filme["status"].empty?
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    # Usa o array de strings de atores e manda a tecla tab
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    # Chama o método que faz upload da capa do filme, se capa não estiver vazia
+    upload(filme["capa"]) unless filme["capa"].empty?
+
+    click_button "create-movie"
+  end
+
+  # Método que faz upload da capa do filme
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+
+    # Muda as barras / para barras invertidas do Windows, se o S.O for Windows
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    # Faz o Capybara não ignorar elementos ocultos
+    Capybara.ignore_hidden_elements = false
+
+    attach_file("upcover", cover_file)
+
+    # Faz ele ignorar elementos ocultos novamente
+    Capybara.ignore_hidden_elements = true
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+  def remove(titulo)
+    filme_tr(titulo).find(".btn-trash").click
+  end
+
+  def confirmar_solicitacao
+    find(".swal2-confirm").click
+  end
+
+  def validar_exclusao(titulo)
+    page.has_no_css?("table tbody tr", text: titulo)
+  end
+
+  # Alerta quando o cadastro do campo obrigatório falha
+  def alerta
+    find(".alert span").text
+  end
+end
+_____________________________________________________________________________________________________
+Esperamos que o resultado desse método seja true, pois estamos perguntando: a página NÃO contém o css com o nome do filme? E o capybara está respondendo: correto, não tem mesmo! 
+ou seja, true.
+
+Então agora iremos escrever a validação do expect, onde vamos esperar que o resultado da chamada seja verdadeiro:
+
+Então("este item deve ser removido do catalogo") do
+  expect(@filme_page.validar_exclusao(@filme["titulo"])).to be true
+end
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme["titulo"])
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    E este filme já existe no catalogo
+  }
+end
+
+Quando("eu solicito a exclusao") do
+  @filme_page.remove(@filme["titulo"])
+end
+
+Quando("eu confirmo a solicitacao") do
+  @filme_page.confirmar_solicitacao
+end
+
+Então("este item deve ser removido do catalogo") do
+  expect(@filme_page.validar_exclusao(@filme["titulo"])).to be true
+end
+_____________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

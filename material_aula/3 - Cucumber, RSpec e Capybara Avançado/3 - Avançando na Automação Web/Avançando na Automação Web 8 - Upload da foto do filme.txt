@@ -1,0 +1,487 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Upload da foto do filme
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Vamos criar dentro de fixtures uma pasta chamada cover e vamos colocar nela todos os arquivos de foto
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+				> cover
+					- coringa.jpg
+					- dp2.jpg
+					- spider.jpg
+					- ultimato.jpg
+				- filmes.yaml
+			> pages
+				> views
+					- sidebar.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+agora vamos editar a FilmePage para ele subir essa foto pra gente:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + filme["capa"])
+    attach_file("upcover", cover_file)
+  end
+end
+_____________________________________________________________________________________________________
+criamos uma variável cover_file que recebe o caminho relativo da nossa pasta cover e concatenamos com o nome da capa do filme de nosso arquivo.yaml
+depois apenas mandamos anexar o arquivo em upcover que é o elemento input da página que recebe arquivos.
+
+Vamos executar:
+
+λ cucumber -t @novo_filme
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:10
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:12
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:13
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:14
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |  {"titulo"=>"Vingadores Ultimato", "status"=>"Disponível", "ano"=>2019, "data_lançamento"=>"24/04/2019", "elenco"=>["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"], "sinópse"=>"Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta", "capa"=>"ultimato.jpg"}
+      Unable to find visible file field "upcover" that is not disabled (Capybara::ElementNotFound)
+      ./features/support/pages/filme_page.rb:27:in `create'
+      ./features/step_definitions/filme_steps.rb:10:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:18:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:13:in `Quando eu faço o cadastro deste filme'
+      | "spider"   |  {"titulo"=>"Homem Aranha Longe de Casa", "status"=>"Pré-venda", "ano"=>2019, "data_lançamento"=>"04/07/2019", "elenco"=>["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"], "sinópse"=>"Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão", "capa"=>"spider.jpg"}
+      Unable to find visible file field "upcover" that is not disabled (Capybara::ElementNotFound)
+      ./features/support/pages/filme_page.rb:27:in `create'
+      ./features/step_definitions/filme_steps.rb:10:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:19:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:13:in `Quando eu faço o cadastro deste filme'
+      | "joker"    |  {"titulo"=>"Coringa", "status"=>"Em breve", "ano"=>2019, "data_lançamento"=>"01/12/2020", "elenco"=>["Joaquin Phoenix"], "sinópse"=>"O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City", "capa"=>"coringa.jpg"}
+      Unable to find visible file field "upcover" that is not disabled (Capybara::ElementNotFound)
+      ./features/support/pages/filme_page.rb:27:in `create'
+      ./features/step_definitions/filme_steps.rb:10:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:20:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:13:in `Quando eu faço o cadastro deste filme'
+
+Failing Scenarios:
+cucumber features/cadastro_filmes.feature:18 # Esquema do Cenario: Novo filme, Exemplos (#1)
+cucumber features/cadastro_filmes.feature:19 # Esquema do Cenario: Novo filme, Exemplos (#2)
+cucumber features/cadastro_filmes.feature:20 # Esquema do Cenario: Novo filme, Exemplos (#3)
+
+3 scenarios (3 failed)
+9 steps (3 failed, 3 skipped, 3 passed)
+0m42.279s
+
+
+O Capybara encontrou o elemento, porém ele está dizendo que o elemento está desabilitado, e como o Capybara funciona simulando um usuário real,
+se o elemento está desabilitado, ele não enxerga. Porém podemos desabilitar isso para esse tipo de situação, usando o comando:
+Capybara.ignore_hidden_elements = false
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + filme["capa"])
+    Capybara.ignore_hidden_elements = false
+    attach_file("upcover", cover_file)
+    Capybara.ignore_hidden_elements = true
+  end
+end
+_____________________________________________________________________________________________________
+E depois que terminamos de usar esse recurso a gente liga ele novamente
+
+
+Vamos executar agora para ver o resultado:
+
+λ cucumber -t @novo_filme
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:10
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:12
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:13
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:14
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |  {"titulo"=>"Vingadores Ultimato", "status"=>"Disponível", "ano"=>2019, "data_lançamento"=>"24/04/2019", "elenco"=>["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"], "sinópse"=>"Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta", "capa"=>"ultimato.jpg"}
+      File not found: c:/qaninja/nflix/features/support/fixtures/cover/ultimato.jpg (Selenium::WebDriver::Error::InvalidArgumentError)
+      WebDriverError@chrome://marionette/content/error.js:175:5
+      InvalidArgumentError@chrome://marionette/content/error.js:304:5
+      interaction.uploadFiles@chrome://marionette/content/interaction.js:507:13
+      ./features/support/pages/filme_page.rb:30:in `create'
+      ./features/step_definitions/filme_steps.rb:10:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:18:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:13:in `Quando eu faço o cadastro deste filme'
+      | "spider"   |  {"titulo"=>"Homem Aranha Longe de Casa", "status"=>"Pré-venda", "ano"=>2019, "data_lançamento"=>"04/07/2019", "elenco"=>["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"], "sinópse"=>"Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão", "capa"=>"spider.jpg"}
+      File not found: c:/qaninja/nflix/features/support/fixtures/cover/spider.jpg (Selenium::WebDriver::Error::InvalidArgumentError)
+      WebDriverError@chrome://marionette/content/error.js:175:5
+      InvalidArgumentError@chrome://marionette/content/error.js:304:5
+      interaction.uploadFiles@chrome://marionette/content/interaction.js:507:13
+      ./features/support/pages/filme_page.rb:30:in `create'
+      ./features/step_definitions/filme_steps.rb:10:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:19:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:13:in `Quando eu faço o cadastro deste filme'
+      | "joker"    |  {"titulo"=>"Coringa", "status"=>"Em breve", "ano"=>2019, "data_lançamento"=>"01/12/2020", "elenco"=>["Joaquin Phoenix"], "sinópse"=>"O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City", "capa"=>"coringa.jpg"}
+      File not found: c:/qaninja/nflix/features/support/fixtures/cover/coringa.jpg (Selenium::WebDriver::Error::InvalidArgumentError)
+      WebDriverError@chrome://marionette/content/error.js:175:5
+      InvalidArgumentError@chrome://marionette/content/error.js:304:5
+      interaction.uploadFiles@chrome://marionette/content/interaction.js:507:13
+      ./features/support/pages/filme_page.rb:30:in `create'
+      ./features/step_definitions/filme_steps.rb:10:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:20:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:13:in `Quando eu faço o cadastro deste filme'
+
+Failing Scenarios:
+cucumber features/cadastro_filmes.feature:18 # Esquema do Cenario: Novo filme, Exemplos (#1)
+cucumber features/cadastro_filmes.feature:19 # Esquema do Cenario: Novo filme, Exemplos (#2)
+cucumber features/cadastro_filmes.feature:20 # Esquema do Cenario: Novo filme, Exemplos (#3)
+
+3 scenarios (3 failed)
+9 steps (3 failed, 3 skipped, 3 passed)
+0m43.917s
+
+Esse erro acontece porque o windows utiliza barra invertida na hora de procurar o arquivo: 
+C:\qaninja\nflix\features\support\fixtures\cover\ultimato.jpg e nosso código está passando:
+c:/qaninja/nflix/features/support/fixtures/cover/ultimato.jpg que é o padrão Unix/Mac
+
+Então para resolver isso vamos converter as barras: cover_file = cover_file.tr("/", "\\")
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + filme["capa"])
+    cover_file = cover_file.tr("/", "\\")
+
+    Capybara.ignore_hidden_elements = false
+    attach_file("upcover", cover_file)
+    Capybara.ignore_hidden_elements = true
+  end
+end
+_____________________________________________________________________________________________________
+E vamos executar mais uma vez:
+
+λ cucumber -t @novo_filme
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:10
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:12
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:13
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:14
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |  {"titulo"=>"Vingadores Ultimato", "status"=>"Disponível", "ano"=>2019, "data_lançamento"=>"24/04/2019", "elenco"=>["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"], "sinópse"=>"Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta", "capa"=>"ultimato.jpg"}
+      | "spider"   |  {"titulo"=>"Homem Aranha Longe de Casa", "status"=>"Pré-venda", "ano"=>2019, "data_lançamento"=>"04/07/2019", "elenco"=>["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"], "sinópse"=>"Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão", "capa"=>"spider.jpg"}
+      | "joker"    |  {"titulo"=>"Coringa", "status"=>"Em breve", "ano"=>2019, "data_lançamento"=>"01/12/2020", "elenco"=>["Joaquin Phoenix"], "sinópse"=>"O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City", "capa"=>"coringa.jpg"}
+
+3 scenarios (3 pending)
+9 steps (3 pending, 6 passed)
+0m22.609s
+
+
+Agora deu certo, porém ficamos com um código que só funciona no Windows e isso não é legal
+
+Para resolver isso de uma vez, primeiramente vamos baixar uma outra Gem, chamada OS:
+
+_____________________________________________________________________________________________________
+source "http://rubygems.org"
+
+gem "capybara", "3.18.0"
+gem "cucumber", "3.1.2"
+gem "rspec", "3.8.0"
+gem "selenium-webdriver", "3.142.0"
+gem "pry"
+gem "os", "1.0.1"
+_____________________________________________________________________________________________________
+require "capybara"
+require "capybara/cucumber"
+require "selenium-webdriver"
+require "pry"
+require "os"
+
+require_relative "helpers"
+
+World(Helpers)
+
+Capybara.configure do |config|
+  config.default_driver = :selenium
+  config.app_host = "http://localhost:8080"
+  config.default_max_wait_time = 10
+end
+_____________________________________________________________________________________________________
+Agora vamos até o terminal instalar a Gem:
+
+λ bundle install
+
+Terminada de instalar vamos mudar um pouco nosso código:
+
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + filme["capa"])
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    Capybara.ignore_hidden_elements = false
+    attach_file("upcover", cover_file)
+    Capybara.ignore_hidden_elements = true
+  end
+end
+_____________________________________________________________________________________________________
+Usando um if ternário usamos a Gem recém baixada para perguntar se o sistema operacional que esse código está rodando é Windows,
+se for windows o código é executado, senão ele não é.
+
+Vamos testar o código novamente:
+
+λ cucumber -t @novo_filme
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:10
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:12
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:13
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:14
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |  {"titulo"=>"Vingadores Ultimato", "status"=>"Disponível", "ano"=>2019, "data_lançamento"=>"24/04/2019", "elenco"=>["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"], "sinópse"=>"Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta", "capa"=>"ultimato.jpg"}
+      | "spider"   |  {"titulo"=>"Homem Aranha Longe de Casa", "status"=>"Pré-venda", "ano"=>2019, "data_lançamento"=>"04/07/2019", "elenco"=>["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"], "sinópse"=>"Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão", "capa"=>"spider.jpg"}
+      | "joker"    |  {"titulo"=>"Coringa", "status"=>"Em breve", "ano"=>2019, "data_lançamento"=>"01/12/2020", "elenco"=>["Joaquin Phoenix"], "sinópse"=>"O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City", "capa"=>"coringa.jpg"}
+
+3 scenarios (3 pending)
+9 steps (3 pending, 6 passed)
+0m28.619s
+
+Porém, olha como nosso método create ficou grande:
+_____________________________________________________________________________________________________
+def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + filme["capa"])
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    Capybara.ignore_hidden_elements = false
+    attach_file("upcover", cover_file)
+    Capybara.ignore_hidden_elements = true
+end
+_____________________________________________________________________________________________________
+Vamos dar uma enxugada nele, jogando esse código de upload em outro método e chamando ele dentro do método create:
+
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    Capybara.ignore_hidden_elements = false
+    attach_file("upcover", cover_file)
+    Capybara.ignore_hidden_elements = true
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    upload(filme["capa"])
+  end
+end
+_____________________________________________________________________________________________________
+
+O professor também separou o código que adiciona atores em outro método e chamou esse método dentro do método create, mas eu não achei isso interessante.
+
+De qualquer forma é assim que o código ficaria:
+_____________________________________________________________________________________________________
+def add_cast(cast)
+    atores = find(".input-new-tag")
+    cast.each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+end
+_____________________________________________________________________________________________________
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

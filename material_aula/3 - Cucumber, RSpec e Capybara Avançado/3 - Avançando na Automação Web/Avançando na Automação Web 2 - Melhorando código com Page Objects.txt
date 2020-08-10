@@ -1,0 +1,462 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Melhorando código com Page Objects
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Vamos usar o BDD recém alterado da aula passada para essa aula de Page Objects:
+
+#language: pt
+
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso
+    Quando eu faço login com "tony@stark.com" e "pwd123"
+    Então devo ser autenticado
+    E devo ver "Tony Stark" na área logada
+
+  @login_infeliz
+  Esquema do Cenario: Login sem sucesso
+    Quando eu faço login com <email> e <senha>
+    Então não devo ser autenticado
+    E devo ver a mensagem de alerta <texto>
+
+    Exemplos:
+      |email              |senha    |texto                          |
+      |"tony@stark.com"   |"abc123" |"Usuário e/ou senha inválidos" |
+      |"404@yahoo.com"    |"abc123" |"Usuário e/ou senha inválidos" |
+      |""                 |"abxpto" |"Opps. Cadê o email?"          |
+      |"teste@gmail.com"  |""       |"Opps. Cadê a senha?"          |
+
+
+Nesse momento começaremos a utilizar orientação a objetos, mais precisamente, vamos começar com Page Objects. Nosso projeto está assim no momento:
+
+NFLIX
+	> features
+		> step_definitions
+			- login_steps.rb
+		> support
+			- env.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+Legenda:
+> pasta
+- arquivo
+
+Criaremos uma pasta dentro de support chamada pages e nossa primeira Page Object dentro dessa pasta:
+
+NFLIX
+	> features
+		> step_definitions
+			- login_steps.rb
+		> support
+			> pages
+				- login_page.rb
+			- env.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+	
+Vamos transferir para essa page object toda a função de fazer login e para isso vamos refator um pouco nosso código, pois usar o fill_in não dará mais certo:
+_____________________________________________________________________________________________________
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  visit "/"
+
+  find("#emailId").set email
+  find("#passId").set senha
+  click_button "Entrar"
+end
+
+Então("devo ser autenticado") do
+  js_script = 'return window.localStorage.getItem("default_auth_token");'
+  token = page.execute_script(js_script)
+  expect(token.length).to be 147
+end
+
+Então("devo ver {string} na área logada") do |nome_esperado|
+  usuario = find(".sidebar-wrapper .user .info span")
+  expect(usuario.text).to eql nome_esperado
+end
+
+Então("não devo ser autenticado") do
+  js_script = 'return window.localStorage.getItem("default_auth_token");'
+  token = page.execute_script(js_script)
+  expect(token).to be nil
+end
+
+Então("devo ver a mensagem de alerta {string}") do |mensagem_esperada|
+  expect(find(".alert span").text).to eql mensagem_esperada
+end
+_____________________________________________________________________________________________________
+Pronto, agora não estamos mais usando o fill_in e sim o find com o set
+
+Vamos transferir toda a responsabilidade de login para a page object login_page.rb, então:
+
+Isso:
+_____________________________________________________________________________________________________
+login_steps.rb
+
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  visit "/"
+  find("#emailId").set email
+  find("#passId").set senha
+  click_button "Entrar"
+end
+_____________________________________________________________________________________________________
+Deixará de existir no arquivo login_steps e vai para o login_page:
+_____________________________________________________________________________________________________
+login_page.rb
+
+class LoginPage
+  def go
+    visit "/"
+  end
+
+  def email
+    find("#emailId")
+  end
+
+  def senha
+    find("#passId")
+  end
+
+  def botao_entrar
+    click_button "Entrar"
+  end
+end
+_____________________________________________________________________________________________________
+Então temos a classe LoginPage e essa classe tem métodos que encapsulam a busca dos elementos da página de login, assim como o modo de visitar essa página também está encapsulado
+
+Agora na página login_steps.rb vamos ter que instanciar a page object LoginPage para termos acesso a seus métodos e atributos:
+_____________________________________________________________________________________________________
+login_steps.rb
+
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  @login = LoginPage.new
+  @login.go
+  @login.email.set email
+  @login.senha.set senha
+  @login.botao_entrar
+end
+_____________________________________________________________________________________________________
+Primeiramente instanciamos a classe LoginPage usando a variável @login
+E a partir desse ponto usamos @login para ter acesso aos atributos e métodos de LoginPage (nesse caso ela não tem atributos, apenas métodos)
+
+Vamos executar para verificar o resultado:
+
+λ cucumber -t @login_feliz
+
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+      undefined method `visit' for #<LoginPage:0x0000000005515748> (NoMethodError)
+      ./features/support/pages/login_page.rb:3:in `go'
+      ./features/step_definitions/login_steps.rb:4:in `"eu faço login com {string} e {string}"'
+      features/login.feature:10:in `Quando eu faço login com "tony@stark.com" e "pwd123"'
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:10
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:16
+
+Failing Scenarios:
+cucumber features/login.feature:9 # Cenario: Acesso
+
+1 scenario (1 failed)
+3 steps (1 failed, 2 skipped)
+0m0.119s
+
+Deu erro!
+
+Isso acontece porque o método visit não é um método conhecido na classe LoginPage. Quando eu faço um require do capybara e do capybara/cucumber no arquivo env.rb, ele disponibiliza
+o capybara na camada do step_definitions e do env.rb, porém nossa nova classe, nossa page object, não reconhece o capybara. Para resolver isso, basta fazer um include na DSL do capybara
+em nossa nova classe, bem no começo dela, ficando assim:
+_____________________________________________________________________________________________________
+login_page.rb
+
+class LoginPage
+  include Capybara::DSL
+
+  def go
+    visit "/"
+  end
+
+  def email
+    find("#emailId")
+  end
+
+  def senha
+    find("#passId")
+  end
+
+  def botao_entrar
+    click_button "Entrar"
+  end
+end
+_____________________________________________________________________________________________________
+Vamos executar mais uma vez:
+
+λ cucumber -t @login_feliz
+
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:10
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:16
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m10.323s
+
+Agora deu tudo certo!
+
+Porém o Papito é um idiota e fez da maneira mais estúpida possível, pois não precisamos de todos esses métodos e sim ter apenas um método que faz toda a parte do login que já busca todos os elementos da página,
+inclusive dessa forma podemos usar o fill_in, então vamos voltar tudo ao que era antes e fazer direito:
+_____________________________________________________________________________________________________
+login_page.rb
+
+class LoginPage
+  include Capybara::DSL
+
+  def go
+    visit "/"
+  end
+
+  def logar(email, senha)
+    fill_in "emailId", with: email
+    fill_in "passId", with: senha
+    click_button "Entrar"
+  end
+end
+_____________________________________________________________________________________________________
+A LoginPage agora tem apenas dois métodos e o método logar já faz tudo.
+
+Agora o login_steps:
+_____________________________________________________________________________________________________
+login_steps.rb
+
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  @login = LoginPage.new
+  @login.go
+  @login.logar(email, senha)
+end
+_____________________________________________________________________________________________________
+Mais uma vez instanciamos a classe LoginPage com a variável @login e agora temos acesso a seus dois métodos
+
+A partir desse ponto já temos o step do Quando encapsulado e devemos então encapsular o restante, porém
+o primeiro Então não precisa, pois não se refere a nenhuma página, estamos apenas rodando um js_script para pegar um token, mas
+o segundo Então se refere a página logada e ela é uma página.
+
+Reparem que o nome do usuário é visível tanto quando clicamos na página de FILMES, quanto quando clicamos na página de CATÁLOGO, então ele não está em uma página propriamente dita, ele está na barra lateral da página,
+ele é um componente do sistema ou uma view do sistema e views têm sua própria pasta, que fica dentro da pasta pages:
+
+NFLIX
+	> features
+		> step_definitions
+			- login_steps.rb
+		> support
+			> pages
+				> views
+					- sidebar.rb
+				- login_page.rb
+			- env.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+	
+_____________________________________________________________________________________________________
+sidebar.rb
+
+class SideBarView
+  include Capybara::DSL
+
+  def usuario_logado
+    find(".sidebar-wrapper .user .info span").text
+  end
+end
+_____________________________________________________________________________________________________
+login_steps.rb
+
+Então("devo ver {string} na área logada") do |nome_esperado|
+  @sidebar = SideBarView.new
+  expect(@sidebar.usuario_logado).to eql nome_esperado
+end
+_____________________________________________________________________________________________________
+instanciamos a view SideBarView usando a variável @sidebar e assim temos acesso a seu método usuario_logado, que nos devolve o texto com o nome do usuario logado naquele momento
+O resto fica quase igual, mas ao invés de buscarmos o elemento com o find aqui, ele está encapsulado na view e depois o validamos com o expect do RSpec
+
+
+Agora vamos para o último:
+_____________________________________________________________________________________________________
+login_steps.rb
+
+Então("devo ver a mensagem de alerta {string}") do |mensagem_esperada|
+  expect(@login.alertar).to eql mensagem_esperada
+end
+_____________________________________________________________________________________________________
+login_page.rb
+
+class LoginPage
+  include Capybara::DSL
+
+  def go
+    visit "/"
+  end
+
+  def logar(email, senha)
+    fill_in "emailId", with: email
+    fill_in "passId", with: senha
+    click_button "Entrar"
+  end
+
+  def alertar
+    find(".alert span").text
+  end
+end
+_____________________________________________________________________________________________________
+Como a mensagem de alerta quando o login falha fica na própria página de login, bastou então criar mais um método para encapsular isso
+Nesse caso não precisou instanciar novamente a LoginPage, porque isso já havia sido feito no Quando, porém podemos melhorar isso.
+
+Sempre que eu preciso chamar uma classe eu estou instanciando ela e podemos melhorar esse processo:
+Para melhorar isso vamos criar mais um arquivo dentro da pasta support chamado hooks.rb e criar um before do cucumber:
+
+NFLIX
+	> features
+		> step_definitions
+			- login_steps.rb
+		> support
+			> pages
+				> views
+					- sidebar.rb
+				- login_page.rb
+			- env.rb
+			- hooks.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+_____________________________________________________________________________________________________
+hooks.rb
+
+Before do
+  @login = LoginPage.new
+  @sidebar = SideBarView.new
+end
+_____________________________________________________________________________________________________
+Desse modo não precisamos mais instanciar essas classes dentro de step_definitions
+
+Agora o código de login_steps.rb fica assim:
+_____________________________________________________________________________________________________
+login_steps.rb
+
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  @login.go
+  @login.logar(email, senha)
+end
+
+Então("devo ser autenticado") do
+  js_script = 'return window.localStorage.getItem("default_auth_token");'
+  token = page.execute_script(js_script)
+  expect(token.length).to be 147
+end
+
+Então("devo ver {string} na área logada") do |nome_esperado|
+  expect(@sidebar.usuario_logado).to eql nome_esperado
+end
+
+Então("não devo ser autenticado") do
+  js_script = 'return window.localStorage.getItem("default_auth_token");'
+  token = page.execute_script(js_script)
+  expect(token).to be nil
+end
+
+Então("devo ver a mensagem de alerta {string}") do |mensagem_esperada|
+  expect(@login.alertar).to eql mensagem_esperada
+end
+_____________________________________________________________________________________________________
+repare que não tem mais as variáveis que instanciam essas classes
+
+Agora vamos executar todos os testes, para isso não vou usar nenhuma tag:
+
+λ cucumber
+
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:13
+
+  @login_infeliz
+  Esquema do Cenario: Login sem sucesso        # features/login.feature:15
+    Quando eu faço login com <email> e <senha> # features/login.feature:16
+    Então não devo ser autenticado             # features/login.feature:17
+    E devo ver a mensagem de alerta <texto>    # features/login.feature:18
+
+    Exemplos:
+      | email             | senha    | texto                          |
+      | "tony@stark.com"  | "abc123" | "Usuário e/ou senha inválidos" |
+      | "404@yahoo.com"   | "abc123" | "Usuário e/ou senha inválidos" |
+      | ""                | "abxpto" | "Opps. Cadê o email?"          |
+      | "teste@gmail.com" | ""       | "Opps. Cadê a senha?"          |
+
+5 scenarios (5 passed)
+15 steps (15 passed)
+0m10.206s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

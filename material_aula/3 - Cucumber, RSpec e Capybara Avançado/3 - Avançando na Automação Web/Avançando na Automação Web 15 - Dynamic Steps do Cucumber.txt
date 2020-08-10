@@ -1,0 +1,394 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Dynamic Steps do Cucumber
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Vamos usar o mesmo feature da aula passada, porém vamos mudar um pouquinho:
+_____________________________________________________________________________________________________
+#language:pt
+
+@login
+Funcionalidade: Remover filme
+    Para que eu possa manter o catalogo atualizado
+    Sendo um gestor de catalogo que encontrou um titulo cancelado/indesejado 
+    Posso remover este item
+
+    @rm_movie
+    Cenario: Confirmar exclusao
+        Dado que "dbz" esta no catalogo
+        Quando eu solicito a exclusao
+        E eu confirmo a solicitacao
+        Então este item deve ser removido do catalogo
+    
+
+    Cenario: Cancelar exclusao
+        Dado que "10 coisas que odeio em voce" esta no catalogo
+        Quando eu solicito a exclusao
+        Mas cancelo a solicitacao
+        Então este item deve permanecer no catalogo
+
+
+_____________________________________________________________________________________________________
+
+Vamos começar executando esse tag para pegar seus snippets:
+
+λ cucumber -t @rm_movie
+# language: pt
+Funcionalidade: Remover filme
+    Para que eu possa manter o catalogo atualizado
+    Sendo um gestor de catalogo que encontrou um titulo cancelado/indesejado
+    Posso remover este item
+
+  @rm_movie
+  Cenario: Confirmar exclusao                         # features/remover_filme.feature:9
+    Dado que "Dragon Ball Evolution" esta no catalogo # features/remover_filme.feature:10
+    Quando eu solicito a exclusao                     # features/remover_filme.feature:11
+    E eu confirmo a solicitacao                       # features/remover_filme.feature:12
+    Então este item deve ser removido do catalogo     # features/remover_filme.feature:13
+
+1 scenario (1 undefined)
+4 steps (4 undefined)
+0m0.094s
+
+You can implement step definitions for undefined steps with these snippets:
+
+Dado("que {string} esta no catalogo") do |string|
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Quando("eu solicito a exclusao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Quando("eu confirmo a solicitacao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("este item deve ser removido do catalogo") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+E agora vamos colar os snippets no nosso arquivo filme_steps.rb:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme)
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |string|
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Quando("eu solicito a exclusao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Quando("eu confirmo a solicitacao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("este item deve ser removido do catalogo") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+
+Agora vamos cadastrar os dados do filme no arquivo yaml:
+_____________________________________________________________________________________________________
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+spider:
+  titulo: "Homem Aranha Longe de Casa"
+  status: "Pré-venda"
+  ano: 2019
+  data_lançamento: "04/07/2019"
+  elenco: ["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"]
+  sinópse: "Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão"
+  capa: "spider.jpg"
+joker:
+  titulo: "Coringa"
+  status: "Em breve"
+  ano: 2019
+  data_lançamento: "01/12/2020"
+  elenco: ["Joaquin Phoenix"]
+  sinópse: "O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City"
+  capa: "coringa.jpg"
+deadpool2:
+  titulo: "Deadpool 2"
+  status: "Disponível"
+  ano: 2018
+  data_lançamento: "01/05/2018"
+  elenco: ["Ryan Reynolds", "Josh Brolin"]
+  sinópse: "O super soldado Cable vem do futuro com a missão de detonar um jovem mutante e o Deadpool deve salvá-lo"
+  capa: "dp2.jpg"
+dbz:
+  titulo: "Dragon Ball Evolution"
+  status: "Disponível"
+  ano: 2009
+  data_lançamento: "10/07/2009"
+  elenco: []
+  sinópse: ""
+  capa: "dbz.jpg"
+sem_titulo:
+  titulo: ""
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_status:
+  titulo: "Filme Teste"
+  status: ""
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_ano:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: ""
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_data_lançamento:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: ""
+  elenco: []
+  sinópse: ""
+  capa: ""
+_____________________________________________________________________________________________________
+Apenas com o campos obrigatórios.
+
+Como nós já temos passos que fazem uma inclusão de um filme e uma que faz o delete de um filme, nós poderiamos simplesmente copiar 
+esse código para dentro do nosso passo Dado e isso resolveria o problema:
+_____________________________________________________________________________________________________
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+  Database.new.delete_movie(@filme["titulo"])
+  Database.new.insert_movie(@filme)
+end
+_____________________________________________________________________________________________________
+Apenas isso acima já resolveria, porém vamos fazer de uma maneira melhor, vamos usar Dynamic Steps
+
+Para eu garantir que "dbz" está no catalogo, os passos que garantem que isso são os do arquivo cadastro_filmes.feature:
+
+Dado que "deadpool2" é um novo filme
+Mas este filme já existe no catalogo
+
+Então vamos utilizar o recurso:
+ steps %{
+    Dado que "deadpool2" é um novo filme
+    Mas este filme já existe no catalogo
+  }
+
+Mas do jeito que está ai está errado e por isso vamos adequar:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme)
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    Mas este filme já existe no catalogo
+  }
+end
+
+Quando("eu solicito a exclusao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Quando("eu confirmo a solicitacao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("este item deve ser removido do catalogo") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+
+Dessa forma, quando ele for chamar o passo:
+
+Dado("que {string} é um novo filme") do |codigo_filme|
+
+a interpolação vai passar para ele exatamente "dbz" que é o nome do filme em nosso arquivo yaml
+
+Só precisamos fazer um pequeno ajuste, pois o Mas não entra na camada de código, sendo o passo anterior a ele um Dado, podemos dizer que ele também é um Dado e 
+por esse motivo, podemos chamar de "E":
+
+Dado
+E
+
+Então o arquivo vai ficar assim:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme)
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    E este filme já existe no catalogo
+  }
+end
+
+Quando("eu solicito a exclusao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Quando("eu confirmo a solicitacao") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("este item deve ser removido do catalogo") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    E este filme já existe no catalogo
+  }
+end
+
+Pode ser lido como:
+Dado que "#{codigo_filme}" é um novo filme
+Dado este filme já existe no catalogo
+
+Mas, para facilitar a leitura sempre usamos o E, por isso mudamos o Mas para E
+
+Agora vamos executar e vamos acessar o pgadmin para ver se está mesmo cadastrando o filme:
+
+λ cucumber -t @rm_movie
+# language: pt
+Funcionalidade: Remover filme
+    Para que eu possa manter o catalogo atualizado
+    Sendo um gestor de catalogo que encontrou um titulo cancelado/indesejado
+    Posso remover este item
+
+  @rm_movie
+  Cenario: Confirmar exclusao                     # features/remover_filme.feature:9
+    Dado que "dbz" esta no catalogo               # features/step_definitions/filme_steps.rb:27
+    Quando eu solicito a exclusao                 # features/step_definitions/filme_steps.rb:34
+      TODO (Cucumber::Pending)
+      ./features/step_definitions/filme_steps.rb:35:in `"eu solicito a exclusao"'
+      features/remover_filme.feature:11:in `Quando eu solicito a exclusao'
+    E eu confirmo a solicitacao                   # features/step_definitions/filme_steps.rb:38
+    Então este item deve ser removido do catalogo # features/step_definitions/filme_steps.rb:42
+
+1 scenario (1 pending)
+4 steps (2 skipped, 1 pending, 1 passed)
+0m0.132s
+
+Ao acessar o pgadmin eu constatei que o filme existia, ou seja, está cadastrando o filme.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

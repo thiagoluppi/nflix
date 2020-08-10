@@ -1,0 +1,788 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Bônus Bug - Campos Obrigatórios
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Nessa aula vamos continuar utilizando o BDD das aulas passadas e vamos implementar o restante dos passos:
+
+#language:pt
+
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver o novo filme na lista
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  Cenario: Sem nome
+    Quando eu tento cadastrar um filme sem nome
+    Então devo ver a notificação "Oops - Filme sem titulo. Pode isso Arnaldo?"
+
+  Cenario: Sem status
+    Quando eu tento cadastrar um filme sem status
+    Então devo ver a notificação "Oops - O status deve ser informado!"
+
+  Cenario: Ano de lançamento não informado
+    Quando eu tento cadastrar um filme sem ano de lançamento
+    Então devo ver a notificação "Oops - Faltou o ano de lançamento também!"
+
+  Cenario: Data de estréia não informada
+    Quando tento cadastrar um filme sem a data de estréia
+    Então devo ver a notificação "Oops - Quase lá, só falta a data de estréia!"
+
+  Cenario: Duplicado
+    Dado que "Deadpool 2" já foi cadastrado
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix."
+
+Porém para fins de desenvolvimento ele serviu bem, mas agora que vamos automatizar, vamos mudar um pouco para ficar melhor:
+
+Vamos criar um Esquema do Cenario chamado Campos obrigatórios e vamos aproveitar alguns passos do cadastro de filme:
+
+Esquema do Cenario: Campos obrigatórios
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação <texto>
+
+    Exemplos:
+      | codigo        | texto                                           |
+      | "sem_titulo"    | "Oops - Filme sem titulo. Pode isso Arnaldo?" |
+
+O cenário sem nome nós já vamos tirar, pois acabamos de implementar, mas o resto, por enquanto, vai ficar igual
+
+Vamos editar também nosso arquivo filmes.yaml para contemplar o cadastro de um filme sem título:
+_____________________________________________________________________________________________________
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+spider:
+  titulo: "Homem Aranha Longe de Casa"
+  status: "Pré-venda"
+  ano: 2019
+  data_lançamento: "04/07/2019"
+  elenco: ["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"]
+  sinópse: "Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão"
+  capa: "spider.jpg"
+joker:
+  titulo: "Coringa"
+  status: "Em breve"
+  ano: 2019
+  data_lançamento: "01/12/2020"
+  elenco: ["Joaquin Phoenix"]
+  sinópse: "O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City"
+  capa: "coringa.jpg"
+sem_titulo:
+  titulo: ""
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+_____________________________________________________________________________________________________
+Tanto, elenco, como sinópse e capa do filme não são obrigatórios, por isso não vamos nem preencher, porém título é um campo obrigatório
+e é ele que vai faltar e vamos validar em nosso teste
+
+Vamos colocar uma tag nesse novo cenario para pegarmos seus snippets:
+
+#language:pt
+
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver o novo filme na lista
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação <texto>
+
+    Exemplos:
+      | codigo        | texto                                           |
+      | "sem_titulo"    | "Oops - Filme sem titulo. Pode isso Arnaldo?" |
+
+  Cenario: Sem status
+    Quando eu tento cadastrar um filme sem status
+    Então devo ver a notificação "Oops - O status deve ser informado!"
+
+  Cenario: Ano de lançamento não informado
+    Quando eu tento cadastrar um filme sem ano de lançamento
+    Então devo ver a notificação "Oops - Faltou o ano de lançamento também!"
+
+  Cenario: Data de estréia não informada
+    Quando tento cadastrar um filme sem a data de estréia
+    Então devo ver a notificação "Oops - Quase lá, só falta a data de estréia!"
+
+  Cenario: Duplicado
+    Dado que "Deadpool 2" já foi cadastrado
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix."
+
+
+E agora vamos executar:
+
+λ cucumber -t @attempt_movie
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios # features/cadastro_filmes.feature:23
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:28
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:29
+    Então devo ver a notificação <texto>  # features/cadastro_filmes.feature:30
+
+    Exemplos:
+      | codigo       | texto                                         |
+      | "sem_titulo" | "Oops - Filme sem titulo. Pode isso Arnaldo?" |
+      File not found: c:\qaninja\nflix\features\support\fixtures\cover\ (Selenium::WebDriver::Error::InvalidArgumentError)
+      WebDriverError@chrome://marionette/content/error.js:175:5
+      InvalidArgumentError@chrome://marionette/content/error.js:304:5
+      interaction.uploadFiles@chrome://marionette/content/interaction.js:507:13
+      ./features/support/pages/filme_page.rb:36:in `upload'
+      ./features/support/pages/filme_page.rb:26:in `create'
+      ./features/step_definitions/filme_steps.rb:9:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:34:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:29:in `Quando eu faço o cadastro deste filme'
+
+Failing Scenarios:
+cucumber features/cadastro_filmes.feature:34 # Esquema do Cenario: Campos obrigatórios, Exemplos (#1)
+
+1 scenario (1 failed)
+3 steps (1 failed, 1 undefined, 1 passed)
+0m17.863s
+
+You can implement step definitions for undefined steps with these snippets:
+
+Então("devo ver a notificação {string}") do |string|
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Ele deu um erro, porque no método de adicionar a capa ele precisa receber o nome do arquivo pelo argumento file
+então precisamos fazer com que, se essa capa estiver vazia, ele não chama o método upload. Vamos editar nossa page object:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def add
+    find(".nc-simple-add").click
+  end
+
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    upload(filme["capa"]) unless filme["capa"].empty?
+
+    click_button "create-movie"
+  end
+
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    Capybara.ignore_hidden_elements = false
+    attach_file("upcover", cover_file)
+    Capybara.ignore_hidden_elements = true
+  end
+
+  def filme_tr(filme)
+    find("table tbody tr", text: filme["titulo"])
+  end
+end
+_____________________________________________________________________________________________________
+Nós adicionamos um código à linha: 
+upload(filme["capa"]) unless filme["capa"].empty? => chama o método upload, a menos que capa do filme estiver vazia
+
+Agora vamos executar mais uma vez:
+
+λ cucumber -t @attempt_movie
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios # features/cadastro_filmes.feature:23
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:28
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:29
+    Então devo ver a notificação <texto>  # features/cadastro_filmes.feature:30
+
+    Exemplos:
+      | codigo       | texto                                         |
+      | "sem_titulo" | "Oops - Filme sem titulo. Pode isso Arnaldo?" |
+
+1 scenario (1 undefined)
+3 steps (1 undefined, 2 passed)
+0m8.346s
+
+You can implement step definitions for undefined steps with these snippets:
+
+Então("devo ver a notificação {string}") do |string|
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Ele fez todo o processo, porém não chamou o método upload. E ainda temos nosso snippet!
+
+Então agora vamos codificar ele, primeiro nossa FilmePage terá mais um método:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Preenche os campos de cadastro de filme
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: filme["status"]).click
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    # Usa o array de strings de atores e manda a tecla tab
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    # Chama o método que faz upload da capa do filme, se capa não estiver vazia
+    upload(filme["capa"]) unless filme["capa"].empty?
+
+    click_button "create-movie"
+  end
+
+  # Método que faz upload da capa do filme
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+
+    # Muda as barras / para barras invertidas do Windows, se o SO for Windows
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    # Faz o Capybara não ignorar elementos ocultos
+    Capybara.ignore_hidden_elements = false
+    attach_file("upcover", cover_file)
+    Capybara.ignore_hidden_elements = true
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(filme)
+    find("table tbody tr", text: filme["titulo"])
+  end
+
+  # Alerta quando o cadastro do campo obrigatório falha
+  def alerta
+    find(".alert span").text
+  end
+end
+_____________________________________________________________________________________________________
+Foi adicionado um método para pegar a mensagem da página de filme, quando um campo obrigatório não é preenchido
+Também adicionei comentários para o código ficar menos dificil de ler.
+
+
+Agora vamos implementar mais um passo, mais um cenario:
+
+#language:pt
+
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver o novo filme na lista
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação <texto>
+
+    Exemplos:
+      | codigo        | texto                                           |
+      | "sem_titulo"    | "Oops - Filme sem titulo. Pode isso Arnaldo?" |
+      | "sem_status"    | "Oops - O status deve ser informado!"         |  
+
+  Cenario: Ano de lançamento não informado
+    Quando eu tento cadastrar um filme sem ano de lançamento
+    Então devo ver a notificação "Oops - Faltou o ano de lançamento também!"
+
+  Cenario: Data de estréia não informada
+    Quando tento cadastrar um filme sem a data de estréia
+    Então devo ver a notificação "Oops - Quase lá, só falta a data de estréia!"
+
+  Cenario: Duplicado
+    Dado que "Deadpool 2" já foi cadastrado
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix."
+
+E claro que vamos adicionar mais um registro em nosso filmes.yaml:
+_____________________________________________________________________________________________________
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+spider:
+  titulo: "Homem Aranha Longe de Casa"
+  status: "Pré-venda"
+  ano: 2019
+  data_lançamento: "04/07/2019"
+  elenco: ["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"]
+  sinópse: "Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão"
+  capa: "spider.jpg"
+joker:
+  titulo: "Coringa"
+  status: "Em breve"
+  ano: 2019
+  data_lançamento: "01/12/2020"
+  elenco: ["Joaquin Phoenix"]
+  sinópse: "O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City"
+  capa: "coringa.jpg"
+sem_titulo:
+  titulo: ""
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_status:
+  titulo: "Filme Teste"
+  status: ""
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+_____________________________________________________________________________________________________
+
+E como o método na page object e o expect na camada de step já estão implementados, não precisamos mudar nada. 
+
+Então vamos executar novamente:
+
+λ cucumber -t @attempt_movie
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios # features/cadastro_filmes.feature:23
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:28
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:29
+    Então devo ver a notificação <texto>  # features/cadastro_filmes.feature:30
+
+    Exemplos:
+      | codigo       | texto                                         |
+      | "sem_titulo" | "Oops - Filme sem titulo. Pode isso Arnaldo?" |
+      | "sem_status" | "Oops - O status deve ser informado!"         |
+      Ambiguous match, found 3 elements matching visible css ".el-select-dropdown__item" with text "" (Capybara::Ambiguous)
+      ./features/support/pages/filme_page.rb:15:in `create'
+      ./features/step_definitions/filme_steps.rb:9:in `"eu faço o cadastro deste filme"'
+      features/cadastro_filmes.feature:35:in `Quando eu faço o cadastro deste filme'
+      features/cadastro_filmes.feature:29:in `Quando eu faço o cadastro deste filme'
+
+Failing Scenarios:
+cucumber features/cadastro_filmes.feature:35 # Esquema do Cenario: Campos obrigatórios, Exemplos (#2)
+
+2 scenarios (1 failed, 1 passed)
+6 steps (1 failed, 1 skipped, 4 passed)
+0m20.820s
+
+Deu erro de ambiguidade, ele está dizendo que encontrou 3 elementos ".el-select-dropdown__item", cujo texto é ""
+
+Vamos ter que resolver isso da mesma maneira que resolvemos o outro problema de campo vazio, utilizando o recurso do Ruby unless,
+porém, como temos duas linhas para fazer isso, vamos criar outro método para selecionar o status, ai a gente só chama esse método, se o status não estiver vazio:
+Vamos editar nossa page object, FilmePage:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que seleciona o status do filme
+  def select_status(status)
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: status).click
+  end
+
+  # Método que preenche os campos de cadastro de filme
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    # Chama o método que seleciona o status do filme, se status não estiver vazio
+    select_status(filme["status"]) unless filme["status"].empty?
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    # Usa o array de strings de atores e manda a tecla tab
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    # Chama o método que faz upload da capa do filme, se capa não estiver vazia
+    upload(filme["capa"]) unless filme["capa"].empty?
+
+    click_button "create-movie"
+  end
+
+  # Método que faz upload da capa do filme
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+
+    # Muda as barras / para barras invertidas do Windows, se o SO for Windows
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    # Faz o Capybara não ignorar elementos ocultos
+    Capybara.ignore_hidden_elements = false
+
+    attach_file("upcover", cover_file)
+
+    # Faz ele ignorar elementos ocultos novamente
+    Capybara.ignore_hidden_elements = true
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(filme)
+    find("table tbody tr", text: filme["titulo"])
+  end
+
+  # Alerta quando o cadastro do campo obrigatório falha
+  def alerta
+    find(".alert span").text
+  end
+end
+_____________________________________________________________________________________________________
+
+Vamos executar mais uma vez:
+
+λ cucumber -t @attempt_movie
+
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios # features/cadastro_filmes.feature:23
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:28
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:29
+    Então devo ver a notificação <texto>  # features/cadastro_filmes.feature:30
+
+    Exemplos:
+      | codigo       | texto                                         |
+      | "sem_titulo" | "Oops - Filme sem titulo. Pode isso Arnaldo?" |
+      | "sem_status" | "Oops - O status deve ser informado!"         |
+
+2 scenarios (2 passed)
+6 steps (6 passed)
+0m9.199s
+
+
+Vamos para o cenario de sem ano e sem data de lançamento:
+
+#language:pt
+
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver o novo filme na lista
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação <texto>
+
+    Exemplos:
+      | codigo                | texto                                           |
+      | "sem_titulo"          | "Oops - Filme sem titulo. Pode isso Arnaldo?"   |
+      | "sem_status"          | "Oops - O status deve ser informado!"           |
+      | "sem_ano"             | "Oops - Faltou o ano de lançamento também!"     |
+      | "sem_data_lançamento" | "Oops - Quase lá, só falta a data de estréia!"  |
+
+Cenario: Duplicado
+    Dado que "Deadpool 2" já foi cadastrado
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix."
+
+
+Vamos também criar dois registros no filmes.yaml:
+_____________________________________________________________________________________________________
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+spider:
+  titulo: "Homem Aranha Longe de Casa"
+  status: "Pré-venda"
+  ano: 2019
+  data_lançamento: "04/07/2019"
+  elenco: ["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"]
+  sinópse: "Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão"
+  capa: "spider.jpg"
+joker:
+  titulo: "Coringa"
+  status: "Em breve"
+  ano: 2019
+  data_lançamento: "01/12/2020"
+  elenco: ["Joaquin Phoenix"]
+  sinópse: "O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City"
+  capa: "coringa.jpg"
+sem_titulo:
+  titulo: ""
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_status:
+  titulo: "Filme Teste"
+  status: ""
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_ano:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: ""
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_data_lançamento:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: ""
+  elenco: []
+  sinópse: ""
+  capa: ""
+_____________________________________________________________________________________________________
+
+E vamos executar novamente:
+
+λ cucumber -t @attempt_movie
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios # features/cadastro_filmes.feature:23
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:28
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:29
+    Então devo ver a notificação <texto>  # features/cadastro_filmes.feature:30
+
+    Exemplos:
+      | codigo                | texto                                          |
+      | "sem_titulo"          | "Oops - Filme sem titulo. Pode isso Arnaldo?"  |
+      | "sem_status"          | "Oops - O status deve ser informado!"          |
+      | "sem_ano"             | "Oops - Faltou o ano de lançamento também!"    |
+      | "sem_data_lançamento" | "Oops - Quase lá, só falta a data de estréia!" |
+
+4 scenarios (4 passed)
+12 steps (12 passed)
+0m15.751s
+
+Tudo está rodando perfeitamente! Como esses campos não tinham complexidade, eram apenas texto, não precisou mexer no código.
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

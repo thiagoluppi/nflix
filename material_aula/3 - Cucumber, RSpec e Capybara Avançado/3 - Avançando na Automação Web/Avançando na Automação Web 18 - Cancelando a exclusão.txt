@@ -1,0 +1,299 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Cancelando a exclusão
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Vamos agora fazer o cenario de cancelar exclusão
+
+_____________________________________________________________________________________________________
+#language:pt
+
+@login
+Funcionalidade: Remover filme
+    Para que eu possa manter o catalogo atualizado
+    Sendo um gestor de catalogo que encontrou um titulo cancelado/indesejado 
+    Posso remover este item
+
+    @rm_movie
+    Cenario: Confirmar exclusao
+        Dado que "dbz" esta no catalogo
+        Quando eu solicito a exclusao
+        E eu confirmo a solicitacao
+        Então este item deve ser removido do catalogo
+    
+    @dont_remove
+    Cenario: Cancelar exclusao
+        Dado que "dez_coisas" esta no catalogo
+        Quando eu solicito a exclusao
+        Mas cancelo a solicitacao
+        Então este item deve permanecer no catalogo
+_____________________________________________________________________________________________________
+
+
+Fizemos uma pequena refatoração "dez_coisas" e agora vamos colocar esse filme em nosso arquivo.yaml:
+_____________________________________________________________________________________________________
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+spider:
+  titulo: "Homem Aranha Longe de Casa"
+  status: "Pré-venda"
+  ano: 2019
+  data_lançamento: "04/07/2019"
+  elenco: ["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"]
+  sinópse: "Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão"
+  capa: "spider.jpg"
+joker:
+  titulo: "Coringa"
+  status: "Em breve"
+  ano: 2019
+  data_lançamento: "01/12/2020"
+  elenco: ["Joaquin Phoenix"]
+  sinópse: "O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City"
+  capa: "coringa.jpg"
+deadpool2:
+  titulo: "Deadpool 2"
+  status: "Disponível"
+  ano: 2018
+  data_lançamento: "01/05/2018"
+  elenco: ["Ryan Reynolds", "Josh Brolin"]
+  sinópse: "O super soldado Cable vem do futuro com a missão de detonar um jovem mutante e o Deadpool deve salvá-lo"
+  capa: "dp2.jpg"
+dbz:
+  titulo: "Dragon Ball Evolution"
+  status: "Disponível"
+  ano: 2009
+  data_lançamento: "10/07/2009"
+  elenco: []
+  sinópse: ""
+  capa: "dbz.jpg"
+dez_coisas:
+  titulo: "10 Coisas Que Odeio em Você"
+  status: "Disponível"
+  ano: 2010
+  data_lançamento: "10/07/2009"
+  elenco: []
+  sinópse: ""
+  capa: "dbz.jpg"  
+sem_titulo:
+  titulo: ""
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_status:
+  titulo: "Filme Teste"
+  status: ""
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_ano:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: ""
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_data_lançamento:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: ""
+  elenco: []
+  sinópse: ""
+  capa: ""
+_____________________________________________________________________________________________________
+
+
+Foram criados mais alguns métodos em nossa filme_page:
+
+# Método que clica no cancelar exclusão do botão excluir
+  def cancelar_solicitacao
+    find(".swal2-cancel").click
+  end
+
+# Método que valida que o filme não foi excluido
+  def invalidar_exclusao(titulo)
+    page.has_css?("table tbody tr", text: titulo)
+  end
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que seleciona o status do filme
+  def select_status(status)
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: status).click
+  end
+
+  # Método que preenche os campos de cadastro de filme
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    # Chama o método que seleciona o status do filme, se status não estiver vazio
+    select_status(filme["status"]) unless filme["status"].empty?
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    # Usa o array de strings de atores e manda a tecla tab
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    # Chama o método que faz upload da capa do filme, se capa não estiver vazia
+    upload(filme["capa"]) unless filme["capa"].empty?
+
+    click_button "create-movie"
+  end
+
+  # Método que faz upload da capa do filme
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+
+    # Muda as barras / para barras invertidas do Windows, se o S.O for Windows
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    # Faz o Capybara não ignorar elementos ocultos
+    Capybara.ignore_hidden_elements = false
+
+    attach_file("upcover", cover_file)
+
+    # Faz ele ignorar elementos ocultos novamente
+    Capybara.ignore_hidden_elements = true
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+  # Método que clica no 'x' do botão excluir da linha do titulo do filme
+  def remove(titulo)
+    filme_tr(titulo).find(".btn-trash").click
+  end
+
+  # Método que clica na confirmação do botão excluir
+  def confirmar_solicitacao
+    find(".swal2-confirm").click
+  end
+
+  # Método que clica no cancelar exclusão do botão excluir
+  def cancelar_solicitacao
+    find(".swal2-cancel").click
+  end
+
+  # Método que valida que a página não tem o css com o titulo do filme
+  def validar_exclusao(titulo)
+    page.has_no_css?("table tbody tr", text: titulo)
+  end
+
+  # Método que valida que o filme não foi excluido
+  def invalidar_exclusao(titulo)
+    page.has_css?("table tbody tr", text: titulo)
+  end
+
+  # Alerta quando o cadastro do campo obrigatório falha
+  def alerta
+    find(".alert span").text
+  end
+end
+_____________________________________________________________________________________________________
+
+E também codificamos os passos em nossa filme_steps:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme["titulo"])
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    E este filme já existe no catalogo
+  }
+end
+
+Quando("eu solicito a exclusao") do
+  @filme_page.remove(@filme["titulo"])
+end
+
+Quando("eu confirmo a solicitacao") do
+  @filme_page.confirmar_solicitacao
+end
+
+Quando("cancelo a solicitacao") do
+  @filme_page.cancelar_solicitacao
+end
+
+Então("este item deve ser removido do catalogo") do
+  expect(@filme_page.validar_exclusao(@filme["titulo"])).to be true
+end
+
+Então("este item deve permanecer no catalogo") do
+  expect(@filme_page.invalidar_exclusao(@filme["titulo"])).to be true
+end
+_____________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,50 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Especificando e Testando o cadastro de filmes
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Nessa aula o professor usou um BDD muito mal escrito, cheios de E's para mostrar como o desenvolvimento foi guiado por comportamento, porém, apesar desenvolvimento ter sido bom e ter atingido o esperado
+não podemos usar isso para automatizar, pois ficaria muito mal implementado e de dificil manutenção.
+
+Nessa aula não houve código, apenas ele cadastrando filmes no Ninjaflix usando o tal BDD.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

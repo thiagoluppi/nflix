@@ -1,0 +1,30 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Bonus - Break & Loop
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Nessa aula bonus o professor apenas melhorou o que ele havia feito para pegar o tolken no module.
+Como eu não precisei fazer isso, eu não precisei mexer.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

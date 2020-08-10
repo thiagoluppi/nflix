@@ -1,0 +1,167 @@
+Cucumber, RSpec e Capybara Avançado > Automação Web > Validando área logada
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Nessa aula iremos utilizar o mesmo BDD da aula passada:
+
+#language: pt
+
+Funcionalidade: Login
+
+Para que eu possa gerenciar os filmes do catálogo Ninjaflix
+Sendo um usuário previamente cadastrado
+Posso acessar o sistema com o meu email e senha
+
+@login_feliz
+Cenário: Acesso
+Quando eu faço login com "tony@stark.com" e "pwd123"
+Então devo ser autenticado
+E devo ver "Tony Stark" na área logada
+
+Cenário: Senha inválida
+Quando​​ eu faço login com "tony@stark.com"​ e "abc123"
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Usuário e/ou senha inválidos"
+
+Cenário: Usuário não existe
+Quando​​ eu faço login com "404@yahoo.com" e "abc123"
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Usuário e/ou senha inválidos"
+
+Cenário: Email não informado
+Quando​ eu faço login com "" e "abcxpto"
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Opps. Cadê o email?"
+
+Cenário: Senha não informada
+Quando​ eu faço login com "teste@gmail.com" e ""
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Opps. Cadê a senha?"
+
+Também iremos utilizar os mesmos passos que o cucumber criou pra gente na aula passada:
+
+Quando("eu faço login com {string} e {string}") do |string, string2|
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("devo ser autenticado") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("devo ver {string} na área logada") do |string|
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+E também já temos as duas primeiras partes implementadas:
+_____________________________________________________________________________________________________
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  visit "/"
+  fill_in "emailId", with: email
+  fill_in "passId", with: senha
+  click_button "Entrar"
+end
+
+Então("devo ser autenticado") do
+  js_script = 'return window.localStorage.getItem("default_auth_token");'
+  token = page.execute_script(js_script)
+  expect(token.length).to be 147
+end
+
+Então("devo ver {string} na área logada") do |string|
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+Faltando concluir apenas o último step
+
+E para validar se temos o texto Tony Stark na área logada é muito simples:
+_____________________________________________________________________________________________________
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  visit "/"
+  fill_in "emailId", with: email
+  fill_in "passId", with: senha
+  click_button "Entrar"
+end
+
+Então("devo ser autenticado") do
+  js_script = 'return window.localStorage.getItem("default_auth_token");'
+  token = page.execute_script(js_script)
+  expect(token.length).to be 147
+end
+
+Então("devo ver {string} na área logada") do |nome_esperado|
+  expect(page).to have_text nome_esperado
+end
+_____________________________________________________________________________________________________
+Porém, estamos validando se o texto aparece na página como um todo e isso não é muito preciso, pois se esse nome aparecer na página em qualquer outro lugar
+o teste também vai passar.
+
+Por isso vamos aumentar um pouco o nível de precisão dessa validação:
+_____________________________________________________________________________________________________
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  visit "/"
+  fill_in "emailId", with: email
+  fill_in "passId", with: senha
+  click_button "Entrar"
+end
+
+Então("devo ser autenticado") do
+  js_script = 'return window.localStorage.getItem("default_auth_token");'
+  token = page.execute_script(js_script)
+  expect(token.length).to be 147
+end
+
+Então("devo ver {string} na área logada") do |nome_esperado|
+  usuario = find(".sidebar-wrapper .user .info span")
+  expect(usuario.text).to eql nome_esperado
+end
+_____________________________________________________________________________________________________
+Fizemos um find nas classes:
+.sidebar-wrapper 
+	.user
+		.info
+			span
+E por fim pegamos o span, ou seja, fomos subindo até a classe pai no código html e como podemos observar,
+dentro do find partimos da classe pai .sidebar-wrapper e vamos descendo até a última classe .info e pegamos o span, que é onde tem o texto que queremos validar
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

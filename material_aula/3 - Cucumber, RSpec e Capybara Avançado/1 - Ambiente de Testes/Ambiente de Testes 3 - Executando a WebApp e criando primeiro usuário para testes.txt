@@ -1,0 +1,156 @@
+Cucumber, RSpec e Capybara Avançado > Ambiente de Testes > Executando a WebApp e criando primeiro usuário para testes
+_____________________________________________________________________________________________________
+
+
+Nessa aula vamos subir a aplicação web
+
+ela também será mais um container e precisamos primeiro baixar sua imagem e depois criar um container para ela.
+
+λ docker pull papitoio/nflix-web
+
+Using default tag: latest
+latest: Pulling from papitoio/nflix-web
+c5e155d5a1d1: Pull complete
+221d80d00ae9: Pull complete
+4250b3117dca: Pull complete
+3b7ca19181b2: Pull complete
+425d7b2a5bcc: Pull complete
+69df12c70287: Pull complete
+2a68245de447: Pull complete
+4f61e9705839: Pull complete
+e17df9513db6: Pull complete
+6c819c211905: Pull complete
+ac3a245df972: Pull complete
+2438230684a4: Pull complete
+b48a252fff46: Pull complete
+ff89a8980e6a: Pull complete
+Digest: sha256:55a922e4e766f9778cecc7e4af60dddeb738c0b0b90588e3849f57d3df044ef9
+Status: Downloaded newer image for papitoio/nflix-web:latest
+docker.io/papitoio/nflix-web:latest
+
+Agora que baixamos a imagem vamos criar um container para ela:
+
+λ docker run --name nflix-web --network=skynet -e "VUE_APP_API=http://localhost:3000" -p 8080:8080 -d papitoio/nflix-web
+
+-e "VUE_APP_API=http://localhost:3000" nesse ponto passamos a url do api gateway, pois quem consome a url é a aplicação na camada do cliente (client)
+
+Agora que o container foi criado vamos testar a aplicação no browser
+
+http://localhost:8080/
+
+Atingimos uma tela de login e somente para vermos ela consumindo a url que passamos acima, vamos tentar fazer um login qualquer e observar o código:
+
+Tecle F12 e depois vá até o console, tente fazer um login com qualquer usuario e senha e veja o que acontece:
+
+main.js?attr=4OstoV5MDzLB7GrxqJc9oEIZhnvZNzGtmVQY9zgw8oOJqqZwE8SG-_TDmTszaBEi:1024 POST http://localhost:3000/auth 401 (Unauthorized)
+
+Ele tentou fazer um post na nossa gateway (auth) é autenticação (Authentication Token)
+
+
+A partir desse momento já podemos começar, porém não temos ainda um usuário criado para acessar esse sistema web e iremos utilizar a própria API para fazer isso, porém primeiro
+precisamos baixar o Postman para mandar uma requisição post para nossa API
+
+Vamos fazer o download dele no site oficial:
+
+https://www.postman.com/downloads/
+
+e vamos baixar a versão x64 e vamos instalar
+
+Para criar um usuário vamos usar a API:
+http://localhost:3001/apidoc/#api-User-PostUser
+
+Clicando em create new user, ele desce a tela até o seguinte json:
+{
+  "full_name": "Tony Stark",
+  "email": "tony@stark.com",
+  "password": "123456"
+}
+
+É assim que vamos criar:
+
+Acessar o postman e clicar no "+" para criar nova conexão
+Mudar de GET para POST
+Clicar na aba Body
+Selecionar o radio "raw"
+Em Text, clicar na setinha para baixo e colocar JSON
+Colar o json da API nesse corpo de mensagem (mudar a senha para "pwd123")
+Em "Enter request Url", colocar a url do nosso gateway: http://localhost:3000/
+Porém, devemos passar a rota para criar um usuário, então vai ficar assim:
+http://localhost:3000/user
+Agora é só clicar em Send
+
+Vamos testar se isso deu certo:
+Acessar o site do Ninjaflix:
+http://localhost:8080/login
+
+e logar com as credenciais recém criadas:
+tony@stark.com
+pwd123
+
+pronto, estamos dentro.
+
+Vamos verificar também no postgres que é a API de adminstração do banco de dados:
+http://localhost:15432/
+
+User: root@qaninja
+Senha: qaninja
+
+Agora que estamos acessando a base de dados vamos expandir o banco nflix/schemas/public/tables/users
+
+Nesse ponto podemos ver que temos as colunas:
+"id"
+"full_name"
+"email"
+"password"
+"updatedAt"
+"createdAt"
+
+Que são as mesmas colunas que temos lá no Postman quando enviamos o post para a API:
+{
+    "id": 1,
+    "full_name": "Tony Stark",
+    "email": "tony@stark.com",
+    "password": "$2b$10$910JbyrR1dqkedhY7tXqQ.W4xsabyRVzUQYjI49/ePHi62fd7bMbO",
+    "updatedAt": "2020-05-22T20:00:41.454Z",
+    "createdAt": "2020-05-22T20:00:41.454Z"
+}
+
+Agora vamos fazer uma query sql para ver se deu tudo certo mesmo:
+
+Clique com o botão direito em Users/Scripts/Select Script
+
+Ao selecionar ele deve abrir uma janela demonstrando o seguinte código:
+SELECT id, full_name, password, email, created_at, updated_at
+	FROM public.users;
+
+Mandar rodar esse código e ele vai trazer para gente o usuário recém criado na forma de tabela (não dá para colar aqui)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

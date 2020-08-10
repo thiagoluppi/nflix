@@ -1,0 +1,141 @@
+Cucumber, RSpec e Capybara Avançado > Automação Web > Verificando mensagens de alerta com CSS Selector
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Nessa aula iremos utilizar o mesmo BDD da aula passada:
+
+#language: pt
+
+Funcionalidade: Login
+
+Para que eu possa gerenciar os filmes do catálogo Ninjaflix
+Sendo um usuário previamente cadastrado
+Posso acessar o sistema com o meu email e senha
+
+@login_feliz
+Cenário: Acesso
+Quando eu faço login com "tony@stark.com" e "pwd123"
+Então devo ser autenticado
+E devo ver "Tony Stark" na área logada
+
+@login_infeliz
+Cenário: Senha inválida
+Quando​​ eu faço login com "tony@stark.com"​ e "abc123"
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Usuário e/ou senha inválidos"
+
+Cenário: Usuário não existe
+Quando​​ eu faço login com "404@yahoo.com" e "abc123"
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Usuário e/ou senha inválidos"
+
+Cenário: Email não informado
+Quando​ eu faço login com "" e "abcxpto"
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Opps. Cadê o email?"
+
+Cenário: Senha não informada
+Quando​ eu faço login com "teste@gmail.com" e ""
+Então não devo ser autenticado
+E devo ver a mensagem de alerta "Opps. Cadê a senha?"
+
+E vamos implementar os passos de login quando o cenário falha, ou seja, quando não consigo me autenticar
+
+Perceba que coloquei uma outra tag no feature, pois iremos automatizar ela agora e para isso vamos executar para o cucumber nos dar os snippets:
+
+λ cucumber -t @login_infeliz
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_infeliz
+  Cenario: Senha inválida                                          # features/login.feature:15
+    Quando eu faço login com "tony@stark.com" e "abc123"           # features/step_definitions/login_steps.rb:2
+    Então não devo ser autenticado                                 # features/login.feature:17
+    E devo ver a mensagem de alerta "Usuário e/ou senha inválidos" # features/login.feature:18
+
+1 scenario (1 undefined)
+3 steps (2 undefined, 1 passed)
+0m5.174s
+
+You can implement step definitions for undefined steps with these snippets:
+
+Então("não devo ser autenticado") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("devo ver a mensagem de alerta {string}") do |string|
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Perceba que dessa vez ele criou apenas dois snippets. Isso se dá porque o cucumber aproveita passos para economizar código.
+Dado que o passo: Quando​​ eu faço login com "tony@stark.com"​ e "abc123" é quase identico ao do login com sucesso: Quando eu faço login com "tony@stark.com" e "pwd123"
+Ele utiliza o mesmo esqueleto para fazer a mesma coisa e isso é muito bom, muito prático.
+
+Repare que quando executamos o código, o primeiro passo foi na verdade feito mesmo, ele preencheu o login com senha errada já, sem precisar codificar isso.
+
+Agora vamos implementar o restante do código:
+_____________________________________________________________________________________________________
+Quando("eu faço login com {string} e {string}") do |email, senha|
+  visit "/"
+  fill_in "emailId", with: email
+  fill_in "passId", with: senha
+  click_button "Entrar"
+end
+
+Então("devo ser autenticado") do
+  js_script = 'return window.localStorage.getItem("default_auth_token");'
+  token = page.execute_script(js_script)
+  expect(token.length).to be 147
+end
+
+Então("devo ver {string} na área logada") do |nome_esperado|
+  usuario = find(".sidebar-wrapper .user .info span")
+  expect(usuario.text).to eql nome_esperado
+end
+
+Então("não devo ser autenticado") do
+  js_script = 'return window.localStorage.getItem("default_auth_token");'
+  token = page.execute_script(js_script)
+  expect(token).to be nil
+end
+
+Então("devo ver a mensagem de alerta {string}") do |mensagem_esperada|
+  expect(find(".alert span").text).to eql mensagem_esperada
+end
+_____________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,662 @@
+Cucumber, RSpec e Capybara Avançado > Configurações e Boas Práticas > Page Object 2.0
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Na estrutura do Ninjaflix, quando clicamos no "+" para adicionar um filme,
+somos levados até uma outra página, uma página que é uma sub-página da página de filme ===> http://localhost:8080/movie/list > http://localhost:8080/movie/add
+
+Por esse motivo podemos fazer melhorias na estrutura da nossa camada page object. Vamos melhorar nossa filme_page.rb e para isso vamos mexer na estrutura do projeto
+
+Dentro da pasta views, vamos criar o arquivo filme_add.rb
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+			> libs
+				- database.rb
+				> cover
+					- coringa.jpg
+					- dp2.jpg
+					- spider.jpg
+					- ultimato.jpg
+				- filmes.yaml
+			> pages
+				> views
+					- filme_add.rb
+					- sidebar.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- cadastro_filmes.feature	
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+Vamos colocar todos os métodos que adicionam um filme nessa nova view:
+_____________________________________________________________________________________________________
+class FilmeAdd
+  include Capybara::DSL
+
+  # Método que preenche os campos de cadastro de filme
+  def create(filme)
+    find("input[name=title]").set filme["titulo"]
+
+    # Chama o método que seleciona o status do filme, se status não estiver vazio
+    select_status(filme["status"]) unless filme["status"].empty?
+
+    find("input[name=year]").set filme["ano"]
+    find("input[name=release_date]").set filme["data_lançamento"]
+
+    # Usa o array de strings de atores e manda a tecla tab
+    atores = find(".input-new-tag")
+    filme["elenco"].each do |a|
+      atores.set(a)
+      atores.send_keys :tab
+    end
+
+    find("textarea[name=overview]").set filme["sinópse"]
+
+    # Chama o método que faz upload da capa do filme, se capa não estiver vazia
+    upload(filme["capa"]) unless filme["capa"].empty?
+
+    click_button "create-movie"
+  end
+
+  def alerta
+    find(".alert").text
+  end
+
+  # Método que faz upload da capa do filme
+  def upload(file)
+    cover_file = File.join(Dir.pwd, "features/support/fixtures/cover/" + file)
+
+    # Muda as barras / para barras invertidas do Windows, se o S.O for Windows
+    cover_file = cover_file.tr("/", "\\") if OS.windows?
+
+    # Faz o Capybara não ignorar elementos ocultos
+    Capybara.ignore_hidden_elements = false
+
+    attach_file("upcover", cover_file)
+
+    # Faz ele ignorar elementos ocultos novamente
+    Capybara.ignore_hidden_elements = true
+  end
+
+  # Método que seleciona o status do filme
+  def select_status(status)
+    find("input[placeholder=Status]").click
+    find(".el-select-dropdown__item", text: status).click
+  end
+end
+_____________________________________________________________________________________________________
+
+E assim ficou agora nossa page object filme_page.rb:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+  # Método que clica no 'x' do botão excluir da linha do titulo do filme
+  def remove(titulo)
+    filme_tr(titulo).find(".btn-trash").click
+  end
+
+  # Método que clica na confirmação do botão excluir
+  def confirmar_solicitacao
+    find(".swal2-confirm").click
+  end
+
+  # Método que clica no cancelar exclusão do botão excluir
+  def cancelar_solicitacao
+    find(".swal2-cancel").click
+  end
+
+  # Método que valida que a página não tem o css com o titulo do filme
+  def validar_exclusao(titulo)
+    page.has_no_css?("table tbody tr", text: titulo)
+  end
+
+  # Método que valida que o filme não foi excluido
+  def invalidar_exclusao(titulo)
+    page.has_css?("table tbody tr", text: titulo)
+  end
+end
+_____________________________________________________________________________________________________
+
+Agora, para garantir o acesso à essa nova pagina e a seus métodos, na filme.rb, vamos criar um acesso à essa classe com o método:
+
+def form
+  FilmeAdd.new
+end
+
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def form
+    FilmeAdd.new
+  end
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+  # Método que clica no 'x' do botão excluir da linha do titulo do filme
+  def remove(titulo)
+    filme_tr(titulo).find(".btn-trash").click
+  end
+
+  # Método que clica na confirmação do botão excluir
+  def confirmar_solicitacao
+    find(".swal2-confirm").click
+  end
+
+  # Método que clica no cancelar exclusão do botão excluir
+  def cancelar_solicitacao
+    find(".swal2-cancel").click
+  end
+
+  # Método que valida que a página não tem o css com o titulo do filme
+  def validar_exclusao(titulo)
+    page.has_no_css?("table tbody tr", text: titulo)
+  end
+
+  # Método que valida que o filme não foi excluido
+  def invalidar_exclusao(titulo)
+    page.has_css?("table tbody tr", text: titulo)
+  end
+end
+_____________________________________________________________________________________________________
+Então tudo que esse novo método retorna é a instancia de FilmeAdd
+
+E agora como vamos fazer na camada de steps para chamar esses métodos novos que não estão mais na page object filme_page.rb?
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.form.create(@filme)
+end
+
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.form.alerta).to eql alerta_esperado
+end
+
+Como o método form retorna apenas uma instancia de FilmeAdd então é como se essa variável se tornasse uma espécie de ponte, ou um nó, uma seta até essa page e seus métodos.
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.form.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme["titulo"])
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.form.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    E este filme já existe no catalogo
+  }
+end
+
+Quando("eu solicito a exclusao") do
+  @filme_page.remove(@filme["titulo"])
+end
+
+Quando("eu confirmo a solicitacao") do
+  @filme_page.confirmar_solicitacao
+end
+
+Quando("cancelo a solicitacao") do
+  @filme_page.cancelar_solicitacao
+end
+
+Então("este item deve ser removido do catalogo") do
+  expect(@filme_page.validar_exclusao(@filme["titulo"])).to be true
+end
+
+Então("este item deve permanecer no catalogo") do
+  expect(@filme_page.invalidar_exclusao(@filme["titulo"])).to be true
+end
+_____________________________________________________________________________________________________
+Pronto!
+
+Agora temos mais dois métodos que são componentes e que podemos fazer algo a respeito também:
+
+Os métodos:
+
+filme_page.rb
+# Método que clica na confirmação do botão excluir
+def confirmar_solicitacao
+  find(".swal2-confirm").click
+end
+
+# Método que clica no cancelar exclusão do botão excluir
+def cancelar_solicitacao
+  find(".swal2-cancel").click
+end
+
+
+
+Então para aproveitar melhor eles dentro do projeto, vamos mexer novamente em nossa estrutura:
+
+Dentro de view, vamos criar o arquivo sweet_alert.rb
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+			> libs
+				- database.rb
+				> cover
+					- coringa.jpg
+					- dp2.jpg
+					- spider.jpg
+					- ultimato.jpg
+				- filmes.yaml
+			> pages
+				> views
+					- filme_add.rb
+					- sidebar.rb
+					- sweet_alert.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- cadastro_filmes.feature	
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+
+E vamos colocar dentro dessa nova view esses métodos:
+_____________________________________________________________________________________________________
+class SweetAlert
+  include Capybara::DSL
+
+  # Método que clica na confirmação do botão excluir
+  def confirmar_solicitacao
+    find(".swal2-confirm").click
+  end
+
+  # Método que clica no cancelar exclusão do botão excluir
+  def cancelar_solicitacao
+    find(".swal2-cancel").click
+  end
+end
+_____________________________________________________________________________________________________
+
+
+FilmePage vai ficar assim agora:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def form
+    FilmeAdd.new
+  end
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+  # Método que clica no 'x' do botão excluir da linha do titulo do filme
+  def remove(titulo)
+    filme_tr(titulo).find(".btn-trash").click
+  end
+
+  # Método que valida que a página não tem o css com o titulo do filme
+  def validar_exclusao(titulo)
+    page.has_no_css?("table tbody tr", text: titulo)
+  end
+
+  # Método que valida que o filme não foi excluido
+  def invalidar_exclusao(titulo)
+    page.has_css?("table tbody tr", text: titulo)
+  end
+end
+_____________________________________________________________________________________________________
+
+
+Agora, se a página cadastro de filmes usa o componente SweetAlert, então vamos criar dentro de filme_page.rb, o método de instancia que acessa esse novo componente:
+
+def sweet_alert
+  SweetAlert.new
+end
+
+Ficando assim:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def form
+    FilmeAdd.new
+  end
+
+  def sweet_alert
+    SweetAlert.new
+  end
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find("table tbody tr", text: titulo)
+  end
+
+  # Método que clica no 'x' do botão excluir da linha do titulo do filme
+  def remove(titulo)
+    filme_tr(titulo).find(".btn-trash").click
+  end
+
+  # Método que valida que a página não tem o css com o titulo do filme
+  def validar_exclusao(titulo)
+    page.has_no_css?("table tbody tr", text: titulo)
+  end
+
+  # Método que valida que o filme não foi excluido
+  def invalidar_exclusao(titulo)
+    page.has_css?("table tbody tr", text: titulo)
+  end
+end
+_____________________________________________________________________________________________________
+
+
+E agora precisamos adequar a camada de steps:
+
+Quando("eu confirmo a solicitacao") do
+  @filme_page.sweet_alert.confirmar_solicitacao
+end
+
+Quando("cancelo a solicitacao") do
+  @filme_page.sweet_alert.cancelar_solicitacao
+end
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+
+  Database.new.delete_movie(@filme["titulo"])
+end
+
+Dado("este filme já existe no catalogo") do
+  Database.new.insert_movie(@filme)
+end
+
+Quando("eu faço o cadastro deste filme") do
+  @filme_page.add
+  @filme_page.form.create(@filme)
+end
+
+Então("devo ver o novo filme na lista") do
+  resultado = @filme_page.filme_tr(@filme["titulo"])
+  expect(resultado).to have_text @filme["titulo"]
+  expect(resultado).to have_text @filme["status"]
+end
+
+Então("devo ver a notificação {string}") do |alerta_esperado|
+  expect(@filme_page.form.alerta).to eql alerta_esperado
+end
+
+Dado("que {string} esta no catalogo") do |codigo_filme|
+  steps %{
+    Dado que "#{codigo_filme}" é um novo filme
+    E este filme já existe no catalogo
+  }
+end
+
+Quando("eu solicito a exclusao") do
+  @filme_page.remove(@filme["titulo"])
+end
+
+Quando("eu confirmo a solicitacao") do
+  @filme_page.sweet_alert.confirmar_solicitacao
+end
+
+Quando("cancelo a solicitacao") do
+  @filme_page.sweet_alert.cancelar_solicitacao
+end
+
+Então("este item deve ser removido do catalogo") do
+  expect(@filme_page.validar_exclusao(@filme["titulo"])).to be true
+end
+
+Então("este item deve permanecer no catalogo") do
+  expect(@filme_page.invalidar_exclusao(@filme["titulo"])).to be true
+end
+_____________________________________________________________________________________________________
+Pronto!
+
+
+Agora percebam que em nossa classe filme_page.rb, nós temos 3 métodos que usam o mesmo seletor css ("table tbody tr", text: titulo)
+
+Podemos criar um construtor e jogar esse seletor dentro de uma variável, desse modo se esse seletor mudar, só precisamos fazer mudanças dentro do contrutor:
+_____________________________________________________________________________________________________
+class FilmePage
+  include Capybara::DSL
+
+  def initialize
+    @movie_list_css = "table tbody tr"
+  end
+
+  def form
+    FilmeAdd.new
+  end
+
+  def sweet_alert
+    SweetAlert.new
+  end
+
+  # Clica no botão "+" para cadastrar um filme
+  def add
+    find(".nc-simple-add").click
+  end
+
+  # Método que pega a linha da tabela do titulo do filme
+  def filme_tr(titulo)
+    find(@movie_list_css, text: titulo)
+  end
+
+  # Método que clica no 'x' do botão excluir da linha do titulo do filme
+  def remove(titulo)
+    filme_tr(titulo).find(".btn-trash").click
+  end
+
+  # Método que valida que a página não tem o css com o titulo do filme
+  def validar_exclusao(titulo)
+    page.has_no_css?(@movie_list_css, text: titulo)
+  end
+
+  # Método que valida que o filme não foi excluido
+  def invalidar_exclusao(titulo)
+    page.has_css?(@movie_list_css, text: titulo)
+  end
+end
+_____________________________________________________________________________________________________
+Pronto, agora vamos executar todo o projeto para ver se passa:
+
+
+λ cucumber
+# language: pt
+@login
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:10
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:12
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:13
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:14
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  @attempt_movie
+  Esquema do Cenario: Campos obrigatórios # features/cadastro_filmes.feature:23
+    O gestor de catálogo tenta cadastrar um novo filme, mas esquece
+    de preencher um dos campos obrigatórios, em seguida, o sistema
+    exibe uma notificação para o usuário.
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:28
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:29
+    Então devo ver a notificação <texto>  # features/cadastro_filmes.feature:30
+
+    Exemplos:
+      | codigo                | texto                                          |
+      | "sem_titulo"          | "Oops - Filme sem titulo. Pode isso Arnaldo?"  |
+      | "sem_status"          | "Oops - O status deve ser informado!"          |
+      | "sem_ano"             | "Oops - Faltou o ano de lançamento também!"    |
+      | "sem_data_lançamento" | "Oops - Quase lá, só falta a data de estréia!" |
+
+  @dup_movie
+  Cenario: Duplicado                                                          # features/cadastro_filmes.feature:40
+    Dado que "deadpool2" é um novo filme                                      # features/step_definitions/filme_steps.rb:1
+    Mas este filme já existe no catalogo                                      # features/step_definitions/filme_steps.rb:8
+    Quando eu faço o cadastro deste filme                                     # features/step_definitions/filme_steps.rb:12
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix." # features/step_definitions/filme_steps.rb:23
+
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+  @login_infeliz
+  Esquema do Cenario: Login sem sucesso        # features/login.feature:15
+    Quando eu faço login com <email> e <senha> # features/login.feature:16
+    Então não devo ser autenticado             # features/login.feature:17
+    E devo ver a mensagem de alerta <texto>    # features/login.feature:18
+
+    Exemplos:
+      | email             | senha    | texto                          |
+      | "tony@stark.com"  | "abc123" | "Usuário e/ou senha inválidos" |
+      | "404@yahoo.com"   | "abc123" | "Usuário e/ou senha inválidos" |
+      | ""                | "abxpto" | "Opps. Cadê o email?"          |
+      | "teste@gmail.com" | ""       | "Opps. Cadê a senha?"          |
+
+# language: pt
+@login
+Funcionalidade: Remover filme
+    Para que eu possa manter o catalogo atualizado
+    Sendo um gestor de catalogo que encontrou um titulo cancelado/indesejado
+    Posso remover este item
+
+  @rm_movie
+  Cenario: Confirmar exclusao                     # features/remover_filme.feature:10
+    Dado que "dbz" esta no catalogo               # features/step_definitions/filme_steps.rb:27
+    Quando eu solicito a exclusao                 # features/step_definitions/filme_steps.rb:34
+    E eu confirmo a solicitacao                   # features/step_definitions/filme_steps.rb:38
+    Então este item deve ser removido do catalogo # features/step_definitions/filme_steps.rb:46
+
+  @dont_remove
+  Cenario: Cancelar exclusao                    # features/remover_filme.feature:17
+    Dado que "dez_coisas" esta no catalogo      # features/step_definitions/filme_steps.rb:27
+    Quando eu solicito a exclusao               # features/step_definitions/filme_steps.rb:34
+    Mas cancelo a solicitacao                   # features/step_definitions/filme_steps.rb:42
+    Então este item deve permanecer no catalogo # features/step_definitions/filme_steps.rb:50
+
+15 scenarios (15 passed)
+48 steps (48 passed)
+0m43.025s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

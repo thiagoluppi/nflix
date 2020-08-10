@@ -1,0 +1,613 @@
+Cucumber, RSpec e Capybara Avançado > Configurações e Boas Práticas > Executando testes em ambiente de Dev ou HMG
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Nessa aula vamos criar um arquivo de configuração para execução do projeto
+
+Muitas vezes precisamos executar um teste em diferentes tipos de ambiente como homologação, desenvolvimento e até mesmo produção (não é indicado)
+
+E para isso vamos criar um outro arquivo.yaml na raiz do projeto, ou seja, dentro de NFLIX chamado cucumber.yaml:
+
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+			> libs
+				- database.rb
+				> cover
+					- coringa.jpg
+					- dp2.jpg
+					- spider.jpg
+					- ultimato.jpg
+				- filmes.yaml
+			> pages
+				> views
+					- filme_add.rb
+					- sidebar.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- cadastro_filmes.feature	
+		- login.feature
+	- cucumber.yaml
+	- Gemfile
+	- Gemfile.lock
+
+Agora dentro desse arquivo vamos criar umas variáveis para definir esses ambientes:
+_____________________________________________________________________________________________________
+---
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+_____________________________________________________________________________________________________
+Segundo o professor, o arquivo começa com 3 hífens.
+Foram definidos então 3 ambientes
+
+
+Agora dentro do env.rb vamos criar uma variável de configuração:
+_____________________________________________________________________________________________________
+require "capybara"
+require "capybara/cucumber"
+require "selenium-webdriver"
+require "pry"
+require "os"
+
+require_relative "helpers"
+
+World(Helpers)
+
+CONFIG = ENV["ENV_TYPE"]
+puts CONFIG
+
+Capybara.configure do |config|
+  config.default_driver = :selenium
+  config.app_host = "http://localhost:8080"
+  config.default_max_wait_time = 10
+end
+_____________________________________________________________________________________________________
+Então definimos a variável CONFIG e vamos imprimir o valor na tela
+
+
+Agora vamos rodar o cenário @login_feliz e ver o que acontece
+
+λ cucumber -t @login_feliz
+
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m6.704s
+
+Não aconteceu nada! Isso se dá porque não falamos pro cucumber qual a configuração que queriamos rodar e temos 3 configurações.
+
+Para falar pro cucumber qual a configuração que queremos, precisamos passar na hora da execução do teste um parametro para tal:
+
+λ cucumber -t @login_feliz -p dev
+
+dev
+Using the dev profile...
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m6.845s
+
+Agora podemos ver que estamos usando o profile de dev e ele printou a variável CONFIG para nós dessa vez.
+
+Não é necessário passar esse parametro todas as vezes na chamada do cucumber, podemos criar um ambiente default para que, se não fizermos essa passada de parametro,
+ele execute sempre esse por default
+
+_____________________________________________________________________________________________________
+---
+default: -p dev
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+_____________________________________________________________________________________________________
+Aqui estamos falando pro cucumber que nosso ambiente default é o dev, mas poderia ser qualquer um deles.
+
+Vamos executar mais uma vez:
+
+λ cucumber -t @login_feliz
+
+dev
+Using the default and dev profiles...
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m6.141s
+
+
+
+Agora vamos entender o porquê disso tudo
+
+Vamos mexer novamente na estrutura de nosso projeto, vamos criar a pasta "config" dentro de "support" e dentro de "config" o arquivo dev.yaml:
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> config
+				- dev.yaml
+			> fixtures
+			> libs
+				- database.rb
+				> cover
+					- coringa.jpg
+					- dp2.jpg
+					- spider.jpg
+					- ultimato.jpg
+				- filmes.yaml
+			> pages
+				> views
+					- filme_add.rb
+					- sidebar.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- cadastro_filmes.feature	
+		- login.feature
+	- cucumber.yaml
+	- Gemfile
+	- Gemfile.lock
+
+
+Agora vamos compor o novo arquivo:
+
+dev.yaml:
+_____________________________________________________________________________________________________
+---
+url: "http://localhost:8080"
+_____________________________________________________________________________________________________
+Perceba que essa url é a mesma do arquivo env.rb:
+
+config.app_host = "http://localhost:8080"
+
+essa url foi recortada de lá e nesse momento o arquivo env.rb está assim:
+_____________________________________________________________________________________________________
+require "capybara"
+require "capybara/cucumber"
+require "selenium-webdriver"
+require "pry"
+require "os"
+
+require_relative "helpers"
+
+World(Helpers)
+
+CONFIG = ENV["ENV_TYPE"]
+puts CONFIG
+
+Capybara.configure do |config|
+  config.default_driver = :selenium
+  config.app_host = ""
+  config.default_max_wait_time = 10
+end
+_____________________________________________________________________________________________________
+
+
+Como se trata de um arquivo de configuração de ambiente, é claro que precisamos criar mais alguns, dado que no arquivo cucumber.yaml
+definimos 3 ambientes e um default, então:
+
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> config
+				- dev.yaml
+				- dev_toolbox.yaml
+				- hmg.yaml
+			> fixtures
+			> libs
+				- database.rb
+				> cover
+					- coringa.jpg
+					- dp2.jpg
+					- spider.jpg
+					- ultimato.jpg
+				- filmes.yaml
+			> pages
+				> views
+					- filme_add.rb
+					- sidebar.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- cadastro_filmes.feature	
+		- login.feature
+	- cucumber.yaml
+	- Gemfile
+	- Gemfile.lock
+
+E dentro desses arquivos as urls:
+
+dev_toolbox.yaml:
+_____________________________________________________________________________________________________
+---
+url: "http://192.168.99.100:8080"
+_____________________________________________________________________________________________________
+
+hmg.yaml:
+_____________________________________________________________________________________________________
+---
+url: "http://hmg.nflix.com:8080"
+_____________________________________________________________________________________________________
+A url acima é apenas ficcional, é apenas para exemplificar, essa url não existe.
+
+
+Agora vamos consertar nosso arquivo env.rb, pois ele está todo errado ainda
+
+O que era:
+CONFIG = ENV["ENV_TYPE"]
+vira:
+CONFIG = YAML.load_file(File.join(Dir.pwd, "features/support/config/#{ENV["ENV_TYPE"]}.yaml"))
+
+e o que era:
+config.app_host = ""
+vira:
+config.app_host = CONFIG["url"]
+_____________________________________________________________________________________________________
+require "capybara"
+require "capybara/cucumber"
+require "selenium-webdriver"
+require "pry"
+require "os"
+
+require_relative "helpers"
+
+World(Helpers)
+
+CONFIG = YAML.load_file(File.join(Dir.pwd, "features/support/config/#{ENV["ENV_TYPE"]}.yaml"))
+
+Capybara.configure do |config|
+  config.default_driver = :selenium
+  config.app_host = CONFIG["url"]
+  config.default_max_wait_time = 10
+end
+_____________________________________________________________________________________________________
+
+Agora vamos testar
+
+λ cucumber -t @login_feliz
+
+Using the default and dev profiles...
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m6.146s
+
+
+Tudo funcionando normal, como não passei nenhum parametro ele usou o default como era o esperado.
+
+
+Usando agora o que sabemos, podemos melhorar também nosso arquivo da pasta libs: database.rb
+_____________________________________________________________________________________________________
+require "pg"
+
+class Database
+  def initialize
+    @connection = PG.connect(host: "localhost", dbname: "nflix", user: "postgres", password: "qaninja")
+  end
+
+  def delete_movie(title)
+    @connection.exec("DELETE from public.movies where title = '#{title}';")
+  end
+
+  def insert_movie(movie)
+    sql_script = "INSERT INTO public.movies (title, status, year, release_date, created_at, updated_at)" \
+    " VALUES('#{movie["titulo"]}', '#{movie["status"]}', '#{movie["ano"]}', '#{movie["data_lançamento"]}', current_timestamp, current_timestamp);"
+
+    @connection.exec(sql_script)
+  end
+end
+_____________________________________________________________________________________________________
+No momento ele está assim, a conexão com o banco de dados está meio que hard coded, então vamos melhorar isso também
+
+A conexão que fazemos no banco:
+PG.connect(host: "localhost", dbname: "nflix", user: "postgres", password: "qaninja")
+
+Vai ser transferida para o arquivo de configuração também
+
+Então em dev.yaml vamos colocar host, dbname, user e password:
+_____________________________________________________________________________________________________
+---
+url: "http://localhost:8080"
+database: 
+  host: "localhost"
+  dbname: "nflix"
+  user: "postgres"
+  password: "qaninja"
+_____________________________________________________________________________________________________
+
+
+Também vamos fazer o mesmo com os outros arquivos:
+_____________________________________________________________________________________________________
+---
+url: "http://192.168.99.100:8080"
+database: 
+  host: "192.168.99.100"
+  dbname: "nflix"
+  user: "postgres"
+  password: "qaninja"
+_____________________________________________________________________________________________________
+
+
+Vamos supor que o ambiente de homologação seja outro login, apenas para fins didáticos:
+_____________________________________________________________________________________________________
+---
+url: "http://hmg.nflix.com:8080"
+database: 
+  host: "hmg.nflix.com"
+  dbname: "nflix"
+  user: "usuario_hmg"
+  password: "hmg123"
+_____________________________________________________________________________________________________
+Usando um arquivo de configuração permite que esse tipo de coisa não seja um problema.
+
+
+
+Voltando agora para o que interessa, já que no meu caso vou usar apenas dev
+
+Como vai ficar o arquivo database.rb
+
+@connection = PG.connect(CONFIG["database"])
+
+A variável CONFIG, como ela está toda maiuscula, ela representa uma variável global, vista em todo projeto. Por isso podemos chamar ela aqui
+podemos verificar que agora passamos apenas a variável de configuração e o registro database que é onde tem tudo aquilo de antes (host, dbname, user e password)
+_____________________________________________________________________________________________________
+require "pg"
+
+class Database
+  def initialize
+    @connection = PG.connect(CONFIG["database"])
+  end
+
+  def delete_movie(title)
+    @connection.exec("DELETE from public.movies where title = '#{title}';")
+  end
+
+  def insert_movie(movie)
+    sql_script = "INSERT INTO public.movies (title, status, year, release_date, created_at, updated_at)" \
+    " VALUES('#{movie["titulo"]}', '#{movie["status"]}', '#{movie["ano"]}', '#{movie["data_lançamento"]}', current_timestamp, current_timestamp);"
+
+    @connection.exec(sql_script)
+  end
+end
+_____________________________________________________________________________________________________
+
+
+
+Temos também no hooks.rb um login feito de maneira hard coded o que poderia dar problema, caso o usuário ou a senha desses ambientes divergissem.
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  @login_page.go
+  @login_page.logar("tony@stark.com", "pwd123")
+end
+_____________________________________________________________________________________________________
+
+
+Por esse motivo vamos criar usuarios em nosso yaml também
+
+dev.yaml
+_____________________________________________________________________________________________________
+---
+url: "http://localhost:8080"
+database: 
+  host: "localhost"
+  dbname: "nflix"
+  user: "postgres"
+  password: "qaninja"
+users:
+  cat_manager:
+    email: "tony@stark.com"
+    pass: "pwd123"
+_____________________________________________________________________________________________________
+cat_manager é nosso gerente de catálogos
+
+
+dev_toolbox.yaml
+_____________________________________________________________________________________________________
+---
+url: "http://192.168.99.100:8080"
+database: 
+  host: "192.168.99.100"
+  dbname: "nflix"
+  user: "postgres"
+  password: "qaninja"
+users:
+  cat_manager:
+    email: "tony_dev@stark.com"
+    pass: "pwd123"
+_____________________________________________________________________________________________________
+
+
+hmg.yaml
+_____________________________________________________________________________________________________
+---
+url: "http://hmg.nflix.com:8080"
+database: 
+  host: "10.20.30.5"
+  dbname: "nflix"
+  user: "usuario_hmg"
+  password: "hmg123"
+users:
+    cat_manager:
+      email: "pepper.pots@stark.com"
+      pass: "pwd123"
+_____________________________________________________________________________________________________
+
+
+
+Agora vamos acessar o env.rb e vamos fazer as mudanças
+_____________________________________________________________________________________________________
+Before do
+  @login_page = LoginPage.new
+  @filme_page = FilmePage.new
+  @sidebar = SideBarView.new
+
+  # Maximizar a página do browser na execução do teste
+  # page.driver.browser.manage.window.maximize
+
+  # Settar o tamanho da tela para o valor passado
+  page.current_window.resize_to(1440, 900)
+end
+
+Before("@login") do
+  user = CONFIG["users"]["cat_manager"]
+  @login_page.go
+  @login_page.logar(user["email"], user["pass"])
+end
+_____________________________________________________________________________________________________
+Criamos a variável "user" e atribuimos a ela o arquivo de configuração e determinamos as chaves "users" e "cat_manager". 
+Porque quando estamos passando CONFIG, poderiamos ter usado as outras chaves como, url ou database.
+Porém, queremos logar, então passamos users > cat_manager
+
+
+Poderiamos ter mais usuários em nosso ambiente e para isso poderiamos apenas settar no yaml também:
+_____________________________________________________________________________________________________
+---
+url: "http://localhost:8080"
+database: 
+  host: "localhost"
+  dbname: "nflix"
+  user: "postgres"
+  password: "qaninja"
+users:
+  cat_manager:
+    email: "tony@stark.com"
+    pass: "pwd123"
+  admin:
+    email: "adm@stark.com"
+    pass: "adm@123"  
+_____________________________________________________________________________________________________
+
+
+Vamos executar novamente:
+
+λ cucumber -t @login_feliz
+
+Using the default and dev profiles...
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m5.301s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

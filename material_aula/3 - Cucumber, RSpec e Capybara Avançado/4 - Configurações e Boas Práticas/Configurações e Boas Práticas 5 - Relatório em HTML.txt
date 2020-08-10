@@ -1,0 +1,184 @@
+Cucumber, RSpec e Capybara Avançado > Configurações e Boas Práticas > Relatório em HTML
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Sempre que executamos um teste, toda saida desse teste tem sido no terminal.
+
+Porém, vamos fazer com que isso fique guardado num relatório:
+
+Para isso vamos executar o login feliz e gravar ele num relatório com o comando:
+
+λ cucumber -t @login_feliz --format html --out=report.html
+
+O comando acima gravou um relatório chamado report.html na raiz de nosso projeto: nflix > report.html
+
+
+Porém é muito ruim ficar passando esse parametro sempre que formos executar um teste que exija que a saida seja feita num relatório
+
+por isso em nosso arquivo cucumber.yaml, vamos fazer com que tudo seja feito sem precisar mandar comando a todo momento:
+cucumber.yaml:
+_____________________________________________________________________________________________________
+---
+default: -p dev -p firefox
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+firefox: BROWSER=firefox
+chrome: BROWSER=chrome
+headless: BROWSER=headless
+html: --format html --out=report.html
+_____________________________________________________________________________________________________
+Porém, ficar apenas jogando esse relatório na raiz do projeto não é muito legal. 
+
+Vamos criar uma pasta chamada "log", dentro da raiz, em nflix mesmo, para que o relatório seja guardado:
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+			> libs
+				- database.rb
+				> cover
+					- coringa.jpg
+					- dp2.jpg
+					- spider.jpg
+					- ultimato.jpg
+				- filmes.yaml
+			> pages
+				> views
+					- filme_add.rb
+					- sidebar.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- cadastro_filmes.feature	
+		- login.feature
+	> log	
+	- cucumber.yaml
+	- Gemfile
+	- Gemfile.lock
+
+Feito isso agora vamos corrigir o arquivo cucumber.yaml:
+_____________________________________________________________________________________________________
+---
+default: -p dev -p firefox -p html
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+firefox: BROWSER=firefox
+chrome: BROWSER=chrome
+headless: BROWSER=headless
+html: --format html --out=log/report.html
+_____________________________________________________________________________________________________
+Agora sempre que o relatório for gerado, ele será gravado ai dentro de log. Também colocamos o parametro -p html no default
+
+
+Quando executamos agora o mesmo cenário de login feliz, ele vai gravar um relatório dentro da pasta log, porém não vemos mais a execução no terminal. 
+Vamos mudar isso para que também seja possível ver o que está acontecendo no terminal:
+
+cucumber.yaml:
+_____________________________________________________________________________________________________
+---
+default: -p dev -p firefox -p html -p pretty
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+firefox: BROWSER=firefox
+chrome: BROWSER=chrome
+headless: BROWSER=headless
+html: --format html --out=log/report.html
+pretty: --format pretty
+_____________________________________________________________________________________________________
+Dessa forma ele vai fazer os dois.
+
+λ cucumber -t @login_feliz
+
+Using the default, dev, firefox, html and pretty profiles...
+# language: pt
+Funcionalidade: Login
+  Para que eu possa gerenciar o catalogo do Ninjaflix
+  Sendo um usuário previamente cadastrado
+  Posso acessar o sistema com meu email e senha
+
+  @login_feliz
+  Cenario: Acesso                                        # features/login.feature:9
+    Quando eu faço login com "tony@stark.com" e "pwd123" # features/step_definitions/login_steps.rb:2
+    Então devo ser autenticado                           # features/step_definitions/login_steps.rb:7
+    E devo ver "Tony Stark" na área logada               # features/step_definitions/login_steps.rb:11
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m5.782s
+
+e além disso ele também salvou o relatório normalmente
+
+Podemos também, ao invés de mostrar tudo isso no terminal, mostrar apenas um progresso dos passos representados por um pontinho ".", de acordo com o número de steps.
+
+cucumber.yaml:
+_____________________________________________________________________________________________________
+---
+default: -p dev -p firefox -p html -p progress
+dev: ENV_TYPE=dev
+dev_toolbox: ENV_TYPE=dev_toolbox
+hmg: ENV_TYPE=hmg
+firefox: BROWSER=firefox
+chrome: BROWSER=chrome
+headless: BROWSER=headless
+html: --format html --out=log/report.html
+pretty: --format pretty
+progress: --format progress
+_____________________________________________________________________________________________________
+Repare que substituimos o pretty pelo progress, pois não usamos os dois ao mesmo tempo
+
+
+λ cucumber -t @login_feliz
+
+Using the default, dev, firefox, html and progress profiles...
+...
+
+1 scenario (1 passed)
+3 steps (3 passed)
+0m5.367s
+
+3 passos, 3 pontinhos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

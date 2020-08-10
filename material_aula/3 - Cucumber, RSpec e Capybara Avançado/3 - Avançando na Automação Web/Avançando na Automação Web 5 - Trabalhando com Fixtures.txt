@@ -1,0 +1,373 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Especificando e Testando o cadastro de filmes
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+
+Nessa aula iremos aprender a criar arquivos.yaml que são arquivos de dados, que facilitam a leitura de entrada de dados e leitura de código
+
+Para começar vamos criar uma pasta chamada fixtures dentro da pasta support:
+
+NFLIX
+	> features
+		> step_definitions
+			- login_steps.rb
+		> support
+			> fixtures
+			> pages
+				> views
+					- sidebar.rb
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+Dentro da pasta fixtures vamos criar um arquivo chamado filmes.yaml
+_____________________________________________________________________________________________________
+filmes.yaml
+
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+spider:
+  titulo: "Homem Aranha Longe de Casa"
+  status: "Pré-venda"
+  ano: 2019
+  data_lançamento: "04/07/2019"
+  elenco: ["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"]
+  sinópse: "Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão"
+  capa: "spider.jpg"
+joker:
+  titulo: "Coringa"
+  status: "Em Breve"
+  ano: 2019
+  data_lançamento: "01/12/2020"
+  elenco: ["Joaquin Phoenix"]
+  sinópse: "O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City"
+  capa: "coringa.jpg"
+_____________________________________________________________________________________________________
+Podemos observar que ao invés de usarmos uma tabela de exemplos que ficaria de dificil leitura por conta do volume de dados,
+estamos utilizando um arquivo.yaml, que é muito fácil de ler
+
+A estrutura do projeto fica assim:
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+				- filmes.yaml
+			> pages
+				> views
+					- sidebar.rb
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+
+Agora vamos para o arquivo.feature:
+
+#language:pt
+
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme
+
+    Dado que <codigo> é um novo filme
+    Quando eu faço o cadastro deste filme
+    Então devo ver o novo filme na lista
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+  Cenario: Sem nome
+    Quando eu tento cadastrar um filme sem nome
+    Então devo ver a notificação "Oops - Filme sem titulo. Pode isso Arnaldo?"
+
+  Cenario: Sem status
+    Quando eu tento cadastrar um filme sem status
+    Então devo ver a notificação "Oops - O status deve ser informado!"
+
+  Cenario: Ano de lançamento não informado
+    Quando eu tento cadastrar um filme sem ano de lançamento
+    Então devo ver a notificação "Oops - Faltou o ano de lançamento também!"
+
+  Cenario: Data de estréia não informada
+    Quando tento cadastrar um filme sem a data de estréia
+    Então devo ver a notificação "Oops - Quase lá, só falta a data de estréia!"
+
+  Cenario: Duplicado
+    Dado que "Deadpool 2" já foi cadastrado
+    Quando eu faço o cadastro deste filme
+    Então devo ver a notificação "Oops - Este titulo já existe no Ninjaflix."
+	
+
+Repare que a tabela de exemplos agora está muito simples. Ainda iremos utilizar a tabela de exemplos, porém suportada pelo nosso filmes.yaml, que é onde tem realmente toda a massa de dados
+o <codigo> será os nomes que colocamos lá em cada arquivo de filme no filmes.yaml e cada código que representa um filme tem todo os atributos como titulo, status, ano, etc...
+
+Agora vamos executar essa tag @novo_filme para que o cucumber nos dê os snippets para implementar nos steps:
+
+λ cucumber -t @novo_filme
+
+# language: pt
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:9
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:11
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:12
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:13
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |
+      | "spider"   |
+      | "joker"    |
+
+3 scenarios (3 undefined)
+9 steps (9 undefined)
+0m0.104s
+
+You can implement step definitions for undefined steps with these snippets:
+
+Dado("que {string} é um novo filme") do |string|
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Quando("eu faço o cadastro deste filme") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("devo ver o novo filme na lista") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Vamos criar um novo arquivo na pasta step_definitions chamado filme_steps.rb
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+				- filmes.yaml
+			> pages
+				> views
+					- sidebar.rb
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- login.feature
+	- Gemfile
+	- Gemfile.lock
+
+_____________________________________________________________________________________________________
+filme_steps.rb
+
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = File.join(Dir.pwd, "features/support/fixtures/filmes.yaml")
+  puts file
+end
+
+Quando("eu faço o cadastro deste filme") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("devo ver o novo filme na lista") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+O "File.join(Dir.pwd)" quer dizer o seguinte: a partir da pasta do projeto (NFLIX), ou seja, a partir da raiz do nosso projeto, comece a procurar arquivos
+e ai passamos o caminho relativo até nosso arquivo.yaml: File.join(Dir.pwd, "features/support/fixtures/filmes.yaml")
+
+Também colocamos um puts file somente para vermos a saída:
+
+λ cucumber -t @novo_filme
+
+# language: pt
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:9
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:11
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:12
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:13
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |  c:/qaninja/nflix/features/support/fixtures/filmes.yaml
+      | "spider"   |  c:/qaninja/nflix/features/support/fixtures/filmes.yaml
+      | "joker"    |  c:/qaninja/nflix/features/support/fixtures/filmes.yaml
+
+3 scenarios (3 pending)
+9 steps (3 skipped, 3 pending, 3 passed)
+0m0.121s
+
+Para todos os cenários ele consegue pegar o caminho onde está o arquivo. Está tudo correto, vamos testar um cat:
+
+λ cat c:/qaninja/nflix/features/support/fixtures/filmes.yaml
+
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+spider:
+  titulo: "Homem Aranha Longe de Casa"
+  status: "Pré-venda"
+  ano: 2019
+  data_lançamento: "04/07/2019"
+  elenco: ["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"]
+  sinópse: "Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão"
+  capa: "spider.jpg"
+joker:
+  titulo: "Coringa"
+  status: "Em Breve"
+  ano: 2019
+  data_lançamento: "01/12/2020"
+  elenco: ["Joaquin Phoenix"]
+  sinópse: "O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City"
+  capa: "coringa.jpg"
+
+Porém, a variável file, só está recebendo o caminho desse arquivo.yaml, nós precisamos que ele carregue esse arquivo para nós, então vamos mudar um pouquinho o código:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  puts file
+end
+
+Quando("eu faço o cadastro deste filme") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("devo ver o novo filme na lista") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+Estamos usando o método do ruby YAML.load_file("caminho") para realmente carregar esse arquivo e gravar ele na variável file
+
+Agora vamos executar mais uma vez com o puts file e ver que nesse momento ele não pega mais o caminho até o arquivo e sim o arquivo mesmo:
+
+λ cucumber -t @novo_filme
+# language: pt
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:9
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:11
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:12
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:13
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |  {"ultimato"=>{"titulo"=>"Vingadores Ultimato", "status"=>"Disponível", "ano"=>2019, "data_lançamento"=>"24/04/2019", "elenco"=>["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"], "sinópse"=>"Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta", "capa"=>"ultimato.jpg"}, "spider"=>{"titulo"=>"Homem Aranha Longe de Casa", "status"=>"Pré-venda", "ano"=>2019, "data_lançamento"=>"04/07/2019", "elenco"=>["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"], "sinópse"=>"Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão", "capa"=>"spider.jpg"}, "joker"=>{"titulo"=>"Coringa", "status"=>"Em Breve", "ano"=>2019, "data_lançamento"=>"01/12/2020", "elenco"=>["Joaquin Phoenix"], "sinópse"=>"O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City", "capa"=>"coringa.jpg"}}
+      | "spider"   |  {"ultimato"=>{"titulo"=>"Vingadores Ultimato", "status"=>"Disponível", "ano"=>2019, "data_lançamento"=>"24/04/2019", "elenco"=>["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"], "sinópse"=>"Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta", "capa"=>"ultimato.jpg"}, "spider"=>{"titulo"=>"Homem Aranha Longe de Casa", "status"=>"Pré-venda", "ano"=>2019, "data_lançamento"=>"04/07/2019", "elenco"=>["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"], "sinópse"=>"Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão", "capa"=>"spider.jpg"}, "joker"=>{"titulo"=>"Coringa", "status"=>"Em Breve", "ano"=>2019, "data_lançamento"=>"01/12/2020", "elenco"=>["Joaquin Phoenix"], "sinópse"=>"O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City", "capa"=>"coringa.jpg"}}
+      | "joker"    |  {"ultimato"=>{"titulo"=>"Vingadores Ultimato", "status"=>"Disponível", "ano"=>2019, "data_lançamento"=>"24/04/2019", "elenco"=>["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"], "sinópse"=>"Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta", "capa"=>"ultimato.jpg"}, "spider"=>{"titulo"=>"Homem Aranha Longe de Casa", "status"=>"Pré-venda", "ano"=>2019, "data_lançamento"=>"04/07/2019", "elenco"=>["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"], "sinópse"=>"Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão", "capa"=>"spider.jpg"}, "joker"=>{"titulo"=>"Coringa", "status"=>"Em Breve", "ano"=>2019, "data_lançamento"=>"01/12/2020", "elenco"=>["Joaquin Phoenix"], "sinópse"=>"O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City", "capa"=>"coringa.jpg"}}
+
+3 scenarios (3 pending)
+9 steps (3 skipped, 3 pending, 3 passed)
+0m0.114s
+
+Porém, podemos perceber que ele trouxe os 3 arquivos em todas as execuções e para resolver isso vamos fazer:
+_____________________________________________________________________________________________________
+Dado("que {string} é um novo filme") do |codigo_filme|
+  file = YAML.load_file(File.join(Dir.pwd, "features/support/fixtures/filmes.yaml"))
+  @filme = file[codigo_filme]
+  puts @filme
+end
+
+Quando("eu faço o cadastro deste filme") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+
+Então("devo ver o novo filme na lista") do
+  pending # Write code here that turns the phrase above into concrete actions
+end
+_____________________________________________________________________________________________________
+
+Agora vamos executar mais uma vez:
+
+λ cucumber -t @novo_filme
+# language: pt
+Funcionalidade: Cadastro de filmes
+  Para que eu possa disponibilizar novos títulos no catálogo
+  Sendo um gestor de catálogo
+  Posso cadastrar um novo filmes
+
+  @novo_filme
+  Esquema do Cenario: Novo filme          # features/cadastro_filmes.feature:9
+    Dado que <codigo> é um novo filme     # features/cadastro_filmes.feature:11
+    Quando eu faço o cadastro deste filme # features/cadastro_filmes.feature:12
+    Então devo ver o novo filme na lista  # features/cadastro_filmes.feature:13
+
+    Exemplos:
+      | codigo     |
+      | "ultimato" |  {"titulo"=>"Vingadores Ultimato", "status"=>"Disponível", "ano"=>2019, "data_lançamento"=>"24/04/2019", "elenco"=>["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"], "sinópse"=>"Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta", "capa"=>"ultimato.jpg"}
+      | "spider"   |  {"titulo"=>"Homem Aranha Longe de Casa", "status"=>"Pré-venda", "ano"=>2019, "data_lançamento"=>"04/07/2019", "elenco"=>["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"], "sinópse"=>"Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão", "capa"=>"spider.jpg"}
+      | "joker"    |  {"titulo"=>"Coringa", "status"=>"Em Breve", "ano"=>2019, "data_lançamento"=>"01/12/2020", "elenco"=>["Joaquin Phoenix"], "sinópse"=>"O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City", "capa"=>"coringa.jpg"}
+
+3 scenarios (3 pending)
+9 steps (3 skipped, 3 pending, 3 passed)
+0m0.106s
+
+Agora para cada execução ele trouxe apenas os dados do filme em execução
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

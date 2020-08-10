@@ -1,0 +1,93 @@
+Cucumber, RSpec e Capybara Avançado > Avançando na Automação Web > Especificando cenários para exclusão
+_____________________________________________________________________________________________________
+
+#########################################################################################
+Subir todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker start pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+
+Parar todos os containers que estou usando nas aulas do Ninjaflix:
+λ docker stop pgdb pgadmin nflix-api-users nflix-api-movies nflix-api-gateway nflix-web
+#########################################################################################
+
+Nessa aula vamos criar uma nova estória para tratar a funcionalidade de remover filmes.
+
+Então vamos mudar novamente a estrutura de nosso projeto. Clicando com o botão direito em features, vamos adicionar o arquivo remover_filme.feature
+
+NFLIX
+	> features
+		> step_definitions
+			- filme_steps.rb
+			- login_steps.rb
+		> support
+			> fixtures
+			> libs
+				- database.rb
+				> cover
+					- coringa.jpg
+					- dp2.jpg
+					- spider.jpg
+					- ultimato.jpg
+				- filmes.yaml
+			> pages
+				> views
+					- sidebar.rb
+				- filme_page.rb	
+				- login_page.rb
+			- env.rb
+			- helpers.rb
+			- hooks.rb
+		- cadastro_filmes.feature	
+		- login.feature
+		- remover_filme.feature
+	- Gemfile
+	- Gemfile.lock
+
+_____________________________________________________________________________________________________
+#language:pt
+
+@login
+Funcionalidade: Remover filme
+    Para que eu possa manter o catalogo atualizado
+    Sendo um gestor de catalogo que encontrou um titulo cancelado/indesejado 
+    Posso remover este item
+
+
+    Cenario: Excluir filme
+        Dado que "Dragon Ball Evolution" faz parte do catalogo
+        Quando eu solicito a exclusao
+        E eu confirmo a solicitacao
+        Então este item deve ser removido do catalogo
+    
+
+    Cenario: Desistir da exclusao
+        Dado que "10 coisas que odeio em voce" faz parte do catalogo
+        Quando eu solicito a exclusao
+        Mas cancelo a solicitacao
+        Então este item deve permanecer no catalogo
+_____________________________________________________________________________________________________
+
+Nessa aula apenas construimos o arquivo de feature.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
