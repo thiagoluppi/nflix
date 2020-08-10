@@ -1,0 +1,11 @@
+---
+url: "http://hmg.nflix.com:8080"
+database: 
+  host: "10.20.30.5"
+  dbname: "nflix"
+  user: "usuario_hmg"
+  password: "hmg123"
+users:
+    cat_manager:
+      email: "pepper.pots@stark.com"
+      pass: "pwd123"

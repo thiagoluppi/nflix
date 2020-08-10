@@ -1,0 +1,80 @@
+ultimato:
+  titulo: "Vingadores Ultimato"
+  status: "Disponível"
+  ano: 2019
+  data_lançamento: "24/04/2019"
+  elenco: ["Robert Downey Jr", "Chris Evans", "Brie Larson", "Scarlett Johansson"]
+  sinópse: "Após Thanos destruir metade do universo, os vingadores terão que resolver essa treta"
+  capa: "ultimato.jpg"
+spider:
+  titulo: "Homem Aranha Longe de Casa"
+  status: "Pré-venda"
+  ano: 2019
+  data_lançamento: "04/07/2019"
+  elenco: ["Tom Holland", "Samuel L. Jackson", "Marisa Tomei"]
+  sinópse: "Peter Parker está em uma viagem pela Europa, quando é convocado por Nick Fury para uma missão"
+  capa: "spider.jpg"
+joker:
+  titulo: "Coringa"
+  status: "Em breve"
+  ano: 2019
+  data_lançamento: "01/12/2020"
+  elenco: ["Joaquin Phoenix"]
+  sinópse: "O comediante falido, Arthur Fleck encontra violentos bandidos pelas ruas de Gothan City"
+  capa: "coringa.jpg"
+deadpool2:
+  titulo: "Deadpool 2"
+  status: "Disponível"
+  ano: 2018
+  data_lançamento: "01/05/2018"
+  elenco: ["Ryan Reynolds", "Josh Brolin"]
+  sinópse: "O super soldado Cable vem do futuro com a missão de detonar um jovem mutante e o Deadpool deve salvá-lo"
+  capa: "dp2.jpg"
+dbz:
+  titulo: "Dragon Ball Evolution"
+  status: "Disponível"
+  ano: 2009
+  data_lançamento: "10/07/2009"
+  elenco: []
+  sinópse: ""
+  capa: "dbz.jpg"
+dez_coisas:
+  titulo: "10 Coisas Que Odeio em Você"
+  status: "Disponível"
+  ano: 2010
+  data_lançamento: "10/07/2009"
+  elenco: []
+  sinópse: ""
+  capa: "dbz.jpg"  
+sem_titulo:
+  titulo: ""
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_status:
+  titulo: "Filme Teste"
+  status: ""
+  ano: 2020
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_ano:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: ""
+  data_lançamento: "01/12/2020"
+  elenco: []
+  sinópse: ""
+  capa: ""
+sem_data_lançamento:
+  titulo: "Filme Teste"
+  status: "Disponível"
+  ano: 2020
+  data_lançamento: ""
+  elenco: []
+  sinópse: ""
+  capa: ""
